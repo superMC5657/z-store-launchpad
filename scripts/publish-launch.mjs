@@ -171,7 +171,7 @@ export async function resolveDiscussion({ item, submission, existing, token, fet
 
 /** 作者传播物料包。 */
 export function renderShareKit(item, pin) {
-  const badge = `[![Launched on ZStore](https://img.shields.io/badge/ZStore-Launchpad-111111?style=flat-square)](https://z-store.org/launchpad)`;
+  const badge = `[![Launched on ZStore](https://img.shields.io/badge/ZStore-Launchpad-111111?style=flat-square)](https://z-store-web.pages.dev/launchpad)`;
   return [
     '### 🚀 已上架开源广场 / Launched on ZStore Launchpad',
     '',

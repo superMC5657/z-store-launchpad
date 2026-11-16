@@ -102,4 +102,5 @@ test('讨论标题与传播物料包包含深链与徽章', () => {
   assert.ok(kit.includes('zstore://app/acme/hyper-term'));
   assert.ok(kit.includes(item.discussion_url));
   assert.ok(kit.includes('img.shields.io'));
+  assert.ok(kit.includes('https://z-store-web.pages.dev/launchpad'));
 });
