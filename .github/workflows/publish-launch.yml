@@ -30,7 +30,6 @@ jobs:
       SENDER: ${{ github.event.sender.login }}
       REPO: ${{ github.repository }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RESULT_FILE: ${{ runner.temp }}/publish-result.json
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,6 +40,8 @@ jobs:
       - name: Sync latest manifest
         run: git pull --rebase origin main
       - name: Prepare launch
+        env:
+          RESULT_FILE: ${{ runner.temp }}/publish-result.json
         run: node scripts/publish-launch.mjs prepare --result "$RESULT_FILE"
       - name: Validate manifest
         run: node scripts/validate-launchpad.mjs
@@ -56,4 +57,6 @@ jobs:
           git commit -m "launch: issue #$ISSUE_NUMBER ($LABEL)"
           git push origin HEAD:main
       - name: Announce
+        env:
+          RESULT_FILE: ${{ runner.temp }}/publish-result.json
         run: node scripts/publish-launch.mjs announce --result "$RESULT_FILE"
