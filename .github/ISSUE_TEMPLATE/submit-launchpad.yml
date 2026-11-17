@@ -9,8 +9,8 @@ body:
         感谢投稿！提交后机器人会自动体检仓库（公开、OSI 协议、Release 安装包）并回复预览。
         Thanks for launching! A bot will check your repository (public, OSI license, release assets) and reply with a preview.
 
-        仅接受 OSI 认证开源协议且提供可下载安装包的公开仓库，置顶推荐同样适用该门槛。
-        Only public repositories with an OSI-approved license and downloadable release assets are accepted — Spotlight included.
+        本模板仅受理满足 OSI 认证开源协议且提供可下载安装包的公开仓库（免费上架与开源置顶均适用该校验）；商业赞助合作请联系维护者另行对接。
+        This form is for public repositories with an OSI-approved license and downloadable release assets (both free listings and open-source Spotlight); commercial sponsorships are arranged directly with the maintainer.
   - type: input
     id: repo_url
     attributes:
