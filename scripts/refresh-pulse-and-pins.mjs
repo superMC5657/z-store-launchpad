@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { formatJson, isoNow } from './lib/shared.mjs';
 import { graphql, rest } from './lib/github.mjs';
 import { dropExpiredPins } from './publish-launch.mjs';
+import { pruneExpiredPinsInSources } from './build-launchpad.mjs';
 import { validateLaunchpad } from './validate-launchpad.mjs';
 
 export const HISTORY_DAYS = 14;
@@ -183,11 +184,14 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const manifestFile = path.join(rootDir, 'launchpad.json');
+  const launchesDir = path.join(rootDir, 'launches');
   const historyFile = path.join(rootDir, 'state', 'stars-history.json');
+  const nowMs = Date.now();
+  const sourcesChanged = fs.existsSync(launchesDir) ? pruneExpiredPinsInSources(launchesDir, nowMs) : false;
   const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
   const history = fs.existsSync(historyFile) ? JSON.parse(fs.readFileSync(historyFile, 'utf8')) : { version: 1, days: {} };
   const stats = await collectStats(manifest.items, { token: process.env.GITHUB_TOKEN });
-  const result = refreshManifest(manifest, history, stats, Date.now());
+  const result = refreshManifest(manifest, history, stats, nowMs);
   fs.mkdirSync(path.dirname(historyFile), { recursive: true });
   fs.writeFileSync(historyFile, formatJson(result.history));
   if (result.manifestChanged) {
@@ -195,6 +199,7 @@ if (isMain) {
     if (errors.length) throw new Error(`刷新后的清单未通过校验：\n${errors.join('\n')}`);
     fs.writeFileSync(manifestFile, formatJson(result.manifest));
   }
-  if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `changed=${result.changed}\n`);
-  console.log(result.changed ? '✓ launchpad.json 已更新' : '✓ 无实质变化');
+  const anyChanged = result.changed || sourcesChanged;
+  if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `changed=${anyChanged}\n`);
+  console.log(anyChanged ? '✓ launchpad.json / launches 已更新' : '✓ 无实质变化');
 }

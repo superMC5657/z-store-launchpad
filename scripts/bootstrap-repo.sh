@@ -15,6 +15,9 @@ LABELS=(
   "launchpad-submission|5319e7|开源广场投稿"
   "validated|0e8a16|自动体检通过"
   "needs-changes|d93f0b|自动体检未通过，需要作者修改"
+  "needs-review|fbca04|需要维护者人工核对（如置顶赞助凭证）"
+  "auto-merge|0e8a16|维护者允许自动合并 PR"
+  "update|1d76db|更新或续期已有开源广场条目"
   "approved|1d76db|维护者准入：免费上架最新上架池"
   "pinned-7d|fbca04|维护者准入：置顶推荐 7 天（赞助）"
   "pinned-14d|fbca04|维护者准入：置顶推荐 14 天（赞助）"
@@ -35,5 +38,5 @@ cat <<CHECKLIST
   1. https://github.com/$REPO/settings → Features → 勾选 Discussions
   2. https://github.com/$REPO/discussions/categories → 新建分类 "Launches"（格式选 Announcement 或 Open-ended discussion）
   3. https://github.com/$REPO/settings/actions → Workflow permissions 选择 "Read and write permissions"
-  4. 确认 main 分支保护允许 github-actions[bot] 推送（或为其配置 bypass）
+  4. 若开启 main 分支规则集保护，将 required status check 设为 launchpad-ingest，并建议配置 LAUNCHPAD_BOT_TOKEN（与 z-store-catalog 的 CATALOG_BOT_TOKEN 同理）
 CHECKLIST

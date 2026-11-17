@@ -1,0 +1,291 @@
+name: Issue to Launchpad PR
+
+# 投稿 Issue → launches/<owner>/<repo>.json → PR（默认人工核对合并，或贴 auto-merge/approved/pinned-* 标签自动合并）。
+# 合入 main 后由 build-launchpad.yml 创建 Launches Discussion、编译 launchpad.json 并回复作者传播物料包。
+#
+# 安全边界：
+# - Issue 正文只当数据，不执行任何 Issue/PR 里的代码；
+# - 仅允许 launchpad/issue-* 分支提交 launches/ 变更；
+# - auto-merge / approved / pinned-* / featured-* 仅在操作人具备仓库写权限时生效。
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 要重新处理的 Issue 编号
+        required: true
+        type: string
+      dry_run:
+        description: 只解析与校验，不写文件、不建 PR
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  discussions: write
+  statuses: write
+
+concurrency:
+  group: launchpad-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    name: Ingest submission
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue != null &&
+       github.event.issue.body != null &&
+       contains(github.event.issue.labels.*.name, 'launchpad-submission') &&
+       github.event.sender.type != 'Bot' &&
+       (github.event.action == 'opened' ||
+        (github.event.action == 'edited' && github.event.changes.body != null) ||
+        (github.event.action == 'labeled' &&
+         contains(fromJSON('["auto-merge","retry","update","approved","pinned-7d","pinned-14d","pinned-30d","featured-7d"]'), github.event.label.name))))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      REPO: ${{ github.repository }}
+      ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+      SENDER: ${{ github.event.sender.login }}
+      EVENT_ACTION: ${{ github.event.action || 'workflow_dispatch' }}
+      EVENT_LABEL: ${{ github.event.label.name || '' }}
+      HAS_BOT_TOKEN: ${{ secrets.LAUNCHPAD_BOT_TOKEN != '' && 'true' || 'false' }}
+      GH_TOKEN: ${{ secrets.LAUNCHPAD_BOT_TOKEN || github.token }}
+      GITHUB_TOKEN: ${{ secrets.LAUNCHPAD_BOT_TOKEN || github.token }}
+      AUTO_MERGE_MODE: ${{ vars.AUTO_MERGE_MODE || 'direct' }}
+      AUTO_MERGE_POLICY: ${{ vars.AUTO_MERGE_POLICY || 'manual' }}
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.LAUNCHPAD_BOT_TOKEN || github.token }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Ensure labels
+        run: |
+          gh label create validated --repo "$REPO" --color 0E8A16 --description "Automated checks passed" --force || true
+          gh label create needs-changes --repo "$REPO" --color D93F0B --description "Submission needs changes" --force || true
+          gh label create needs-review --repo "$REPO" --color FBCA04 --description "Needs maintainer review" --force || true
+          gh label create auto-merge --repo "$REPO" --color 0E8A16 --description "Maintainer approved for auto-merge" --force || true
+          gh label create approved --repo "$REPO" --color 0E8A16 --description "Maintainer approved for launch" --force || true
+          gh label create published --repo "$REPO" --color 5319E7 --description "Published to launchpad.json" --force || true
+          gh label create update --repo "$REPO" --color 1D76DB --description "Update or renew existing launch" --force || true
+
+      - name: Ingest issue
+        id: ingest
+        run: |
+          set +e
+          extra="--write"
+          if [ "$DRY_RUN" = "true" ]; then
+            extra="--dry-run"
+          fi
+          if gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json labels \
+              --jq '.labels[].name' 2>/dev/null | grep -qx update; then
+            extra="$extra --update"
+          fi
+
+          node scripts/ingest-issue.mjs \
+            --issue "$ISSUE_NUMBER" \
+            --repo "$REPO" \
+            --out result.json \
+            --pr-title pr-title.txt \
+            --pr-body pr-body.md \
+            --comment comment.md \
+            --failure-comment failure.md \
+            $extra
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ -f result.json ]; then
+            echo "action=$(jq -r '.action // "error"' result.json)" >> "$GITHUB_OUTPUT"
+            echo "needs_review=$(jq -r 'if .needsReview == null then true else .needsReview end' result.json)" >> "$GITHUB_OUTPUT"
+            echo "reputation_ok=$(jq -r 'if .reputationOk == null then false else .reputationOk end' result.json)" >> "$GITHUB_OUTPUT"
+            echo "author_association=$(jq -r '.authorAssociation // ""' result.json)" >> "$GITHUB_OUTPUT"
+            echo "ids=$(jq -r '(.ids // []) | join(", ")' result.json)" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+
+      - name: Comment validation failure
+        if: steps.ingest.outputs.code != '0'
+        run: |
+          if [ ! -f failure.md ]; then
+            printf '### ❌ 自动体检失败\n\n处理 Issue 时出错，请查看 Actions 日志。\n' > failure.md
+          fi
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file failure.md
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label needs-changes || true
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label validated || true
+          exit 1
+
+      - name: Handle duplicate or no-op
+        if: >-
+          steps.ingest.outputs.code == '0' &&
+          (steps.ingest.outputs.action == 'duplicate' ||
+           steps.ingest.outputs.action == 'noop')
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file comment.md
+
+      - name: Handle dry run
+        if: >-
+          steps.ingest.outputs.code == '0' &&
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.dry_run == 'true' &&
+          steps.ingest.outputs.action != 'duplicate' &&
+          steps.ingest.outputs.action != 'noop'
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file comment.md
+          echo "dry_run=true；未写入文件、未建分支/PR。" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate launch sources
+        if: >-
+          steps.ingest.outputs.code == '0' &&
+          steps.ingest.outputs.action != 'duplicate' &&
+          steps.ingest.outputs.action != 'noop' &&
+          !(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')
+        run: |
+          node scripts/build-launchpad.mjs --check-sources
+          node scripts/build-launchpad.mjs --allow-pending-discussion --out /tmp/launchpad-check.json
+
+      - name: Commit and push branch
+        id: push
+        if: >-
+          steps.ingest.outputs.code == '0' &&
+          steps.ingest.outputs.action != 'duplicate' &&
+          steps.ingest.outputs.action != 'noop' &&
+          !(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')
+        run: |
+          set -euo pipefail
+          branch="launchpad/issue-${ISSUE_NUMBER}"
+          git config user.name "zstore-launchpad-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch" origin/main
+          git add launches/
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit -m "$(cat pr-title.txt)"
+          git push --force origin "HEAD:refs/heads/$branch"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update pull request
+        id: pr
+        if: steps.push.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          branch="launchpad/issue-${ISSUE_NUMBER}"
+          pr_url=$(gh pr list --repo "$REPO" --head "$branch" --state open \
+            --json url --jq '.[0].url // ""')
+          if [ -z "$pr_url" ]; then
+            if ! pr_url=$(gh pr create --repo "$REPO" --base main --head "$branch" \
+              --title "$(cat pr-title.txt)" --body-file pr-body.md); then
+              compare="https://github.com/${REPO}/compare/main...${branch}?expand=1"
+              gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
+                --body "分支 \`${branch}\` 已推送，但自动创建 PR 被仓库权限拦截。请手动创建：${compare}"
+              exit 0
+            fi
+          else
+            gh pr edit "$pr_url" --repo "$REPO" \
+              --title "$(cat pr-title.txt)" --body-file pr-body.md
+          fi
+          echo "url=$pr_url" >> "$GITHUB_OUTPUT"
+          echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
+
+      - name: Post launchpad gate status
+        if: steps.pr.outputs.url != ''
+        run: |
+          sha=$(git rev-parse HEAD)
+          gh api -X POST "repos/$REPO/statuses/$sha" \
+            -f state=success \
+            -f context=launchpad-ingest \
+            -f description="launches/ validated by ingest"
+
+      - name: Decide and merge
+        id: merge
+        if: steps.pr.outputs.url != ''
+        run: |
+          set -euo pipefail
+          assoc="${{ steps.ingest.outputs.author_association }}"
+          needs_review="${{ steps.ingest.outputs.needs_review }}"
+          reputation_ok="${{ steps.ingest.outputs.reputation_ok }}"
+          labels=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json labels \
+            --jq '.labels[].name' 2>/dev/null || true)
+
+          trusted=false
+          case "$assoc" in
+            OWNER|MEMBER|COLLABORATOR) trusted=true ;;
+          esac
+
+          sender_can_write=false
+          if [ -n "$SENDER" ]; then
+            perm=$(gh api "repos/$REPO/collaborators/$SENDER/permission" --jq '.permission // ""' 2>/dev/null || true)
+            case "$perm" in
+              admin|maintain|write) sender_can_write=true ;;
+            esac
+          fi
+
+          forced=false
+          if [ "$sender_can_write" = "true" ] && echo "$labels" | grep -Eq '^(auto-merge|approved|pinned-7d|pinned-14d|pinned-30d|featured-7d)$'; then
+            forced=true
+          fi
+
+          can_merge=false
+          if [ "$forced" = "true" ]; then
+            can_merge=true
+          elif [ "$needs_review" = "false" ]; then
+            case "$AUTO_MERGE_POLICY" in
+              trusted) [ "$trusted" = "true" ] && can_merge=true ;;
+              all) ([ "$trusted" = "true" ] || [ "$reputation_ok" = "true" ]) && can_merge=true ;;
+            esac
+          fi
+
+          merged=false
+          if [ "$can_merge" = "true" ]; then
+            if [ "$AUTO_MERGE_MODE" = "native" ]; then
+              gh pr merge "${{ steps.pr.outputs.url }}" --repo "$REPO" --auto --squash --delete-branch && merged=true || true
+            else
+              gh pr merge "${{ steps.pr.outputs.url }}" --repo "$REPO" --squash --delete-branch && merged=true || true
+            fi
+          fi
+
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label validated || true
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label needs-changes || true
+          if [ "$merged" = "true" ]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label needs-review || true
+            # 使用默认 GITHUB_TOKEN 合并 PR 时不会触发 on: push 工作流，显式唤醒 build-launchpad.yml 完成 Discussion 创建与编译。
+            if [ "$HAS_BOT_TOKEN" != "true" ]; then
+              gh workflow run build-launchpad.yml --repo "$REPO" || true
+            fi
+          elif [ "$needs_review" = "true" ]; then
+            gh pr edit "${{ steps.pr.outputs.url }}" --repo "$REPO" --add-label needs-review || true
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label needs-review || true
+          fi
+          echo "merged=$merged" >> "$GITHUB_OUTPUT"
+
+      - name: Comment result
+        if: always() && steps.pr.outputs.url != ''
+        run: |
+          {
+            cat comment.md
+            echo
+            echo "PR: ${{ steps.pr.outputs.url }}"
+            echo
+            if [ "${{ steps.merge.outputs.merged }}" = "true" ]; then
+              echo "✅ PR 已自动合并到 \`main\`，正在后台创建 Discussion、编译 \`launchpad.json\` 并回传物料包。"
+            elif [ "${{ steps.ingest.outputs.needs_review }}" = "true" ]; then
+              echo "⏳ 已生成 PR，需维护者核对后合并（或贴 \`approved\` / 置顶标签自动合并）。"
+            else
+              echo "✅ 自动体检通过并已生成 PR，请维护者审核合并（或贴 \`auto-merge\` / \`approved\` 标签自动合并）。"
+            fi
+          } > final-comment.md
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file final-comment.md

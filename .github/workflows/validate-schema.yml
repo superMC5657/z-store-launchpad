@@ -1,6 +1,6 @@
 name: Validate schema
 
-# PR / Push 清单格式门禁：launchpad.json 校验 + 全部脚本单测。
+# PR / Push 清单格式门禁：launchpad.json 校验 + launches/ 真源校验 + 全部脚本单测。
 
 on:
   push:
@@ -18,8 +18,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - name: Validate launchpad.json
-        run: node scripts/validate-launchpad.mjs
+          node-version: 22
+      - name: Validate launchpad.json and launches/
+        run: |
+          node scripts/validate-launchpad.mjs
+          node scripts/build-launchpad.mjs --check-sources
       - name: Script tests
         run: node --test scripts/*.test.mjs

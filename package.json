@@ -8,7 +8,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "validate": "node scripts/validate-launchpad.mjs",
+    "build": "node scripts/build-launchpad.mjs",
+    "validate": "node scripts/validate-launchpad.mjs && node scripts/build-launchpad.mjs --check-sources",
     "test": "node --test scripts/*.test.mjs"
   },
   "license": "MIT"
