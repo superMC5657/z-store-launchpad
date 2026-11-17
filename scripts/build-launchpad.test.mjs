@@ -11,6 +11,8 @@ import {
   takePendingIssueAnnouncements,
   validateLaunchSource,
 } from './build-launchpad.mjs';
+import { dropExpiredPins, labelToPin } from './lib/shared.mjs';
+import { discussionTitle, renderShareKit } from './lib/discussions.mjs';
 import { validateLaunchpad } from './validate-launchpad.mjs';
 
 const NOW = Date.parse('2027-01-15T00:00:00Z');
@@ -153,3 +155,31 @@ test('loadAndValidateSources 拦截超额有效置顶，pruneExpiredPinsInSource
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+const pin = (id, until, order) => ({ id, pin_until: until, pin_tier: 'sponsor', pin_order: order });
+
+test('标签映射置顶参数', () => {
+  assert.equal(labelToPin('approved'), null);
+  assert.deepEqual(labelToPin('pinned-14d'), { tier: 'sponsor', days: 14 });
+  assert.deepEqual(labelToPin('featured-7d'), { tier: 'featured', days: 7 });
+});
+
+test('dropExpiredPins 撤下到期项并重排顺位', () => {
+  const out = dropExpiredPins(
+    [pin('a/x', '2027-01-15T00:00:00Z', 1), pin('a/y', '2027-01-20T00:00:00Z', 3), pin('a/z', '2027-01-30T00:00:00Z', 2)],
+    NOW,
+  );
+  assert.deepEqual(out.map((p) => [p.id, p.pin_order]), [['a/z', 1], ['a/y', 2]]);
+});
+
+test('讨论标题与传播物料包包含深链与徽章', () => {
+  const item = sourceItem({ discussion_number: 1, discussion_url: 'https://github.com/superMC5657/z-store-launchpad/discussions/1' });
+  assert.ok(discussionTitle(item).startsWith('HyperTerm (acme/hyper-term) — '));
+  const kit = renderShareKit(item, null);
+  assert.ok(kit.includes('zstore://launchpad/acme/hyper-term'));
+  assert.ok(kit.includes('zstore://app/acme/hyper-term'));
+  assert.ok(kit.includes(item.discussion_url));
+  assert.ok(kit.includes('img.shields.io'));
+  assert.ok(kit.includes('https://z-store-web.pages.dev/launchpad'));
+});
+

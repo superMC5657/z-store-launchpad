@@ -13,9 +13,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { formatJson, isoNow } from './lib/shared.mjs';
+import { dropExpiredPins, formatJson, isoNow } from './lib/shared.mjs';
 import { graphql, rest } from './lib/github.mjs';
-import { dropExpiredPins } from './publish-launch.mjs';
 import { pruneExpiredPinsInSources } from './build-launchpad.mjs';
 import { validateLaunchpad } from './validate-launchpad.mjs';
 

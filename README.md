@@ -27,6 +27,7 @@ ZStore「开源广场（Launchpad）」的数据仓：采用与 `z-store-catalog
 | `scripts/validate-launchpad.mjs` | 产物结构与跨字段不变量校验 |
 | `scripts/verify-submission.mjs` | 仓库体检与卡片预览生成 |
 | `scripts/refresh-pulse-and-pins.mjs` | 每日撤下到期置顶，刷新星数与讨论热度 |
+| `scripts/lib/` | 基础库：`shared.mjs`（协议/分类/平台）、`github.mjs`（API）、`discussions.mjs`（讨论与物料） |
 | `scripts/bootstrap-repo.sh` | 初始化标签，打印需手动开启的仓库设置 |
 
 ## 流程

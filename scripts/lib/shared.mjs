@@ -159,6 +159,28 @@ export function sortItems(items) {
   );
 }
 
+/** 标签 → 置顶参数；`approved` 返回 `null`（只进普通新品池）。 */
+export function labelToPin(label) {
+  const m = /^(pinned|featured)-(\d+)d$/.exec(label);
+  if (!m) return null;
+  return { tier: m[1] === 'featured' ? 'featured' : 'sponsor', days: Number(m[2]) };
+}
+
+/** 移除已过期置顶并按原顺序重排 `pin_order = 1..k`（条目本体保留在 items）。 */
+export function dropExpiredPins(pinned, nowMs) {
+  return pinned
+    .filter((p) => Date.parse(p.pin_until) > nowMs)
+    .sort((a, b) => a.pin_order - b.pin_order || a.id.localeCompare(b.id))
+    .map((p, i) => ({ ...p, pin_order: i + 1 }));
+}
+
+const LINKED_DISCUSSION = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/discussions\/(\d+)\/?$/;
+
+export function parseLinkedDiscussion(url) {
+  const m = LINKED_DISCUSSION.exec(String(url || '').trim());
+  return m ? { repo: `${m[1]}/${m[2]}`, number: Number(m[3]) } : null;
+}
+
 /** 磁盘格式：2 空格缩进 + 末尾换行。 */
 export function formatJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`;

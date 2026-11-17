@@ -27,10 +27,13 @@ import {
   isOsiLicense,
   optionKey,
   parseIssueForm,
+  parseLinkedDiscussion,
   parseRepoUrl,
   platformsFromAssets,
 } from './lib/shared.mjs';
-import { addLabels, removeLabel, rest, upsertMarkedComment } from './lib/github.mjs';
+import { rest } from './lib/github.mjs';
+
+export { parseLinkedDiscussion };
 
 export const PREVIEW_MARKER = '<!-- zstore-launchpad-bot-preview -->';
 
@@ -69,12 +72,6 @@ export function parseSubmission(body) {
   };
 }
 
-const LINKED_DISCUSSION = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/discussions\/(\d+)\/?$/;
-
-export function parseLinkedDiscussion(url) {
-  const m = LINKED_DISCUSSION.exec(String(url || '').trim());
-  return m ? { repo: `${m[1]}/${m[2]}`, number: Number(m[3]) } : null;
-}
 
 /** 不访问网络的字段校验，返回错误列表。 */
 export function checkSubmissionFields(sub) {
@@ -276,19 +273,6 @@ if (isMain) {
   const token = process.env.GITHUB_TOKEN;
   const result = await verifySubmission(body, { token });
   const report = renderReport(result);
-  if (args.includes('--post')) {
-    const repo = process.env.REPO;
-    const issue = process.env.ISSUE_NUMBER;
-    await upsertMarkedComment({ repo, issue, marker: PREVIEW_MARKER, body: report, token });
-    if (result.ok) {
-      await addLabels({ repo, issue, labels: ['validated'], token });
-      await removeLabel({ repo, issue, label: 'needs-changes', token });
-    } else {
-      await addLabels({ repo, issue, labels: ['needs-changes'], token });
-      await removeLabel({ repo, issue, label: 'validated', token });
-    }
-  } else {
-    console.log(report);
-  }
+  console.log(report);
   if (args.includes('--strict') && !result.ok) process.exit(1);
 }

@@ -19,10 +19,12 @@ import {
   addDaysIso,
   formatJson,
   isIsoUtc,
+  labelToPin,
+  parseLinkedDiscussion,
 } from './lib/shared.mjs';
 import { rest } from './lib/github.mjs';
-import { labelToPin, resolveDiscussion } from './publish-launch.mjs';
-import { parseLinkedDiscussion, renderReport, verifySubmission } from './verify-submission.mjs';
+import { resolveDiscussion } from './lib/discussions.mjs';
+import { renderReport, verifySubmission } from './verify-submission.mjs';
 import { launchFilePath, loadAndValidateSources, validateLaunchSource } from './build-launchpad.mjs';
 
 const __filename = fileURLToPath(import.meta.url);

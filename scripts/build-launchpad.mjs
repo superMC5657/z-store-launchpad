@@ -37,7 +37,7 @@ import {
   sortItems,
 } from './lib/shared.mjs';
 import { addLabels, removeLabel, rest } from './lib/github.mjs';
-import { renderShareKit, resolveDiscussion } from './publish-launch.mjs';
+import { renderShareKit, resolveDiscussion } from './lib/discussions.mjs';
 import { validateLaunchpad } from './validate-launchpad.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
