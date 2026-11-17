@@ -1,4 +1,8 @@
 {
   "version": 1,
-  "days": {}
+  "days": {
+    "2026-11-17": {
+      "supermc5657/z-viewer": 1
+    }
+  }
 }

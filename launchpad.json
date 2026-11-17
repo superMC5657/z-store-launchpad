@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-11-17T03:23:57Z",
+  "generated_at": "2026-11-17T07:56:33Z",
   "discussions_repo": "superMC5657/z-store-launchpad",
   "pinned": [],
   "items": [
@@ -28,14 +28,14 @@
         "windows",
         "linux"
       ],
-      "stars": 0,
+      "stars": 1,
       "stars_7d_delta": 0,
       "forks": 0,
       "launched_at": "2026-11-17T03:03:31Z",
       "maker_note_en": "Lightweight Tauri 2 image viewer with seamless cross-folder browsing, instant camera RAW preview, and animated frame controls.",
       "latest_release_at": "2026-11-16T15:23:18Z",
-      "discussion_comments_count": 0,
-      "discussion_upvotes": 0,
+      "discussion_comments_count": 1,
+      "discussion_upvotes": 1,
       "discussion_repo": "superMC5657/z-store-launchpad",
       "discussion_number": 3,
       "discussion_node_id": "D_kwDOVwccks4ArNkl",
