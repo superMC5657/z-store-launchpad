@@ -1,7 +1,45 @@
 {
   "version": 1,
-  "generated_at": "2026-11-16T00:00:00Z",
+  "generated_at": "2026-11-17T03:23:57Z",
   "discussions_repo": "superMC5657/z-store-launchpad",
   "pinned": [],
-  "items": []
+  "items": [
+    {
+      "id": "supermc5657/z-viewer",
+      "name": "ZViewer",
+      "owner": "superMC5657",
+      "repo": "z-viewer",
+      "forge": "github",
+      "forge_host": "github.com",
+      "icon": "https://raw.githubusercontent.com/superMC5657/z-viewer/main/src-tauri/icons/icon.png",
+      "icon_bg": "",
+      "description": "基于 Tauri 2 的轻量看图软件，支持跨同级文件夹无缝浏览、相机 RAW 秒开与 GIF/APNG/WebP 帧控。",
+      "maker_note": "基于 Tauri 2 的轻量看图软件，支持跨同级文件夹无缝浏览、相机 RAW 秒开与 GIF/APNG/WebP 帧控。",
+      "maker": {
+        "login": "superMC5657",
+        "avatar_url": "https://avatars.githubusercontent.com/u/33796582?v=4",
+        "html_url": "https://github.com/superMC5657"
+      },
+      "category": "graphics",
+      "category_name": "图形创作",
+      "license": "MIT",
+      "latest_version": "v0.3.2",
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "stars": 0,
+      "stars_7d_delta": 0,
+      "forks": 0,
+      "launched_at": "2026-11-17T03:03:31Z",
+      "maker_note_en": "Lightweight Tauri 2 image viewer with seamless cross-folder browsing, instant camera RAW preview, and animated frame controls.",
+      "latest_release_at": "2026-11-16T15:23:18Z",
+      "discussion_comments_count": 0,
+      "discussion_upvotes": 0,
+      "discussion_repo": "superMC5657/z-store-launchpad",
+      "discussion_number": 3,
+      "discussion_node_id": "D_kwDOVwccks4ArNkl",
+      "discussion_url": "https://github.com/superMC5657/z-store-launchpad/discussions/3"
+    }
+  ]
 }
