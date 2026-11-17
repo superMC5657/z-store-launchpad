@@ -1,9 +1,46 @@
 {
   "version": 1,
-  "generated_at": "2026-11-17T08:47:21Z",
+  "generated_at": "2026-11-17T08:48:23Z",
   "discussions_repo": "superMC5657/z-store-launchpad",
   "pinned": [],
   "items": [
+    {
+      "id": "supermc5657/z-reader",
+      "name": "ZReader",
+      "owner": "superMC5657",
+      "repo": "z-reader",
+      "forge": "github",
+      "forge_host": "github.com",
+      "icon": "https://raw.githubusercontent.com/superMC5657/z-reader/main/src-tauri/icons/icon.png",
+      "icon_bg": "",
+      "description": "现代桌面 RSS 阅读器 - Rust + Tauri 2 + Vue 3",
+      "maker_note": "基于 Rust + Tauri 2 + Vue 3 的现代桌面 RSS 阅读器，支持全文提取、FTS5 全文检索、自动化过滤与多端同步。",
+      "maker": {
+        "login": "superMC5657",
+        "avatar_url": "https://avatars.githubusercontent.com/u/33796582?v=4",
+        "html_url": "https://github.com/superMC5657"
+      },
+      "category": "reading",
+      "category_name": "阅读学习",
+      "license": "MIT",
+      "latest_version": "v0.3.2",
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "stars": 0,
+      "stars_7d_delta": 0,
+      "forks": 0,
+      "launched_at": "2026-11-17T08:45:51Z",
+      "maker_note_en": "Modern desktop RSS reader built with Rust + Tauri 2 + Vue 3, featuring full-text extraction, FTS5 search, automated rules, and cloud sync.",
+      "latest_release_at": "2026-11-17T08:30:30Z",
+      "discussion_comments_count": 0,
+      "discussion_upvotes": 0,
+      "discussion_repo": "superMC5657/z-store-launchpad",
+      "discussion_number": 11,
+      "discussion_node_id": "D_kwDOVwccks4ArN_q",
+      "discussion_url": "https://github.com/superMC5657/z-store-launchpad/discussions/11"
+    },
     {
       "id": "supermc5657/z-ffmpeg",
       "name": "ZFFmpeg",
