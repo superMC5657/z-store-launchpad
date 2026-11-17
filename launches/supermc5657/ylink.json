@@ -1,0 +1,39 @@
+{
+  "id": "supermc5657/ylink",
+  "name": "YLink",
+  "owner": "superMC5657",
+  "repo": "YLink",
+  "forge": "github",
+  "forge_host": "github.com",
+  "icon": "https://raw.githubusercontent.com/superMC5657/YLink/main/src-tauri/icons/icon.png",
+  "icon_bg": "",
+  "description": "基于 Tauri 2 + Go/Gin 的代理订阅与节点管理系统桌面客户端，支持多客户端订阅一键下发与节点状态监控。",
+  "maker_note": "基于 Tauri 2 + Go/Gin 的代理订阅与节点管理系统桌面客户端，支持多客户端订阅一键下发与节点状态监控。",
+  "maker": {
+    "login": "superMC5657",
+    "avatar_url": "https://avatars.githubusercontent.com/u/33796582?v=4",
+    "html_url": "https://github.com/superMC5657"
+  },
+  "category": "network",
+  "category_name": "网络工具",
+  "license": "MIT",
+  "latest_version": "v0.1.1",
+  "platforms": [
+    "windows",
+    "linux"
+  ],
+  "stars": 0,
+  "stars_7d_delta": 0,
+  "forks": 0,
+  "launched_at": "2026-11-17T08:46:13Z",
+  "maker_note_en": "Desktop client for proxy subscription and node management system built with Tauri 2 + Go/Gin.",
+  "latest_release_at": "2026-11-17T08:42:34Z",
+  "discussion_comments_count": 0,
+  "discussion_upvotes": 0,
+  "pin": {
+    "pin_until": "2026-12-17T08:46:13Z",
+    "pin_tier": "sponsor",
+    "pin_order": 1
+  },
+  "source_issue": 7
+}
