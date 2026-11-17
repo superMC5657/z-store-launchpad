@@ -1,9 +1,46 @@
 {
   "version": 1,
-  "generated_at": "2026-11-17T07:56:33Z",
+  "generated_at": "2026-11-17T08:47:21Z",
   "discussions_repo": "superMC5657/z-store-launchpad",
   "pinned": [],
   "items": [
+    {
+      "id": "supermc5657/z-ffmpeg",
+      "name": "ZFFmpeg",
+      "owner": "superMC5657",
+      "repo": "z-ffmpeg",
+      "forge": "github",
+      "forge_host": "github.com",
+      "icon": "https://raw.githubusercontent.com/superMC5657/z-ffmpeg/main/src-tauri/icons/icon.png",
+      "icon_bg": "",
+      "description": "基于 Tauri 2 的跨平台 FFmpeg 桌面视频压制工具，支持批量编码、硬件加速自检、实时体积预估与 VMAF 画质评分。",
+      "maker_note": "基于 Tauri 2 的跨平台 FFmpeg 桌面视频压制工具，支持批量编码、硬件加速自检、实时体积预估与 VMAF 画质评分。",
+      "maker": {
+        "login": "superMC5657",
+        "avatar_url": "https://avatars.githubusercontent.com/u/33796582?v=4",
+        "html_url": "https://github.com/superMC5657"
+      },
+      "category": "media",
+      "category_name": "影音播放",
+      "license": "MIT",
+      "latest_version": "v0.1.5",
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "stars": 0,
+      "stars_7d_delta": 0,
+      "forks": 0,
+      "launched_at": "2026-11-17T08:45:16Z",
+      "maker_note_en": "Cross-platform FFmpeg GUI based on Tauri 2, featuring batch encoding, GPU hardware acceleration, real-time file size estimation, and VMAF quality benchmarking.",
+      "latest_release_at": "2026-11-17T08:28:21Z",
+      "discussion_comments_count": 0,
+      "discussion_upvotes": 0,
+      "discussion_repo": "superMC5657/z-store-launchpad",
+      "discussion_number": 10,
+      "discussion_node_id": "D_kwDOVwccks4ArN_l",
+      "discussion_url": "https://github.com/superMC5657/z-store-launchpad/discussions/10"
+    },
     {
       "id": "supermc5657/z-viewer",
       "name": "ZViewer",
