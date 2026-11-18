@@ -3,6 +3,12 @@
   "days": {
     "2026-11-17": {
       "supermc5657/z-viewer": 1
+    },
+    "2026-11-18": {
+      "supermc5657/ylink": 0,
+      "supermc5657/z-reader": 0,
+      "supermc5657/z-ffmpeg": 1,
+      "supermc5657/z-viewer": 2
     }
   }
 }
