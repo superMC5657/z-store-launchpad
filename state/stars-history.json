@@ -9,6 +9,12 @@
       "supermc5657/z-reader": 0,
       "supermc5657/z-ffmpeg": 1,
       "supermc5657/z-viewer": 2
+    },
+    "2026-11-21": {
+      "supermc5657/ylink": 1,
+      "supermc5657/z-reader": 1,
+      "supermc5657/z-ffmpeg": 1,
+      "supermc5657/z-viewer": 2
     }
   }
 }

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-11-18T07:29:59Z",
+  "generated_at": "2026-11-21T07:09:40Z",
   "discussions_repo": "superMC5657/z-store-launchpad",
   "pinned": [
     {
@@ -35,8 +35,8 @@
         "windows",
         "linux"
       ],
-      "stars": 0,
-      "stars_7d_delta": 0,
+      "stars": 1,
+      "stars_7d_delta": 1,
       "forks": 0,
       "launched_at": "2026-11-17T08:46:13Z",
       "maker_note_en": "Desktop client for proxy subscription and node management system built with Tauri 2 + Go/Gin.",
@@ -72,8 +72,8 @@
         "windows",
         "linux"
       ],
-      "stars": 0,
-      "stars_7d_delta": 0,
+      "stars": 1,
+      "stars_7d_delta": 1,
       "forks": 0,
       "launched_at": "2026-11-17T08:45:51Z",
       "maker_note_en": "Modern desktop RSS reader built with Rust + Tauri 2 + Vue 3, featuring full-text extraction, FTS5 search, automated rules, and cloud sync.",
