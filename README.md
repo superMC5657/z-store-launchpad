@@ -26,13 +26,14 @@ ZStore「开源广场（Launchpad）」的数据仓：采用与 `z-store-catalog
 | `scripts/verify-submission.mjs` | 投稿表单解析与仓库体检（公开、非归档、非 Fork、OSI 协议、Release 安装包） |
 | `scripts/build-launchpad.mjs` | 校验 `launches/`、为新条目创建 Discussion、编译 `launchpad.json` |
 | `scripts/validate-launchpad.mjs` | 产物结构与跨字段不变量校验 |
+| `scripts/discussion-label.mjs` | 讨论帖 `launchpad-delist` 标签 ↔ 条目 `delisted` 双向同步 |
 | `scripts/refresh-pulse-and-pins.mjs` | 每日撤下到期置顶，刷新星数与讨论热度 |
 | `scripts/lib/` | `shared.mjs`（协议 / 分类 / 平台 / 表单解析）、`github.mjs`（API）、`discussions.mjs`（讨论帖） |
 | `scripts/bootstrap-repo.sh` | 创建两个模板标签，打印需手动开启的仓库设置 |
 
 ## 流程：Issue → PR → 维护者手动 merge
 
-上架、更新、下架、重新上架都只有这一条路，机器人从不合并：
+作者的上架、更新、下架、重新上架都走这条路，机器人从不合并 PR（维护者直接下架 / 恢复见下文「上下架」）：
 
 ```
 作者提 Issue ──► issue-to-pr.yml ──► PR（launchpad/issue-<N>，正文 Closes #N）
@@ -44,7 +45,8 @@ ZStore「开源广场（Launchpad）」的数据仓：采用与 `z-store-catalog
 | 工作流 | 触发 | 做什么 |
 | --- | --- | --- |
 | `issue-to-pr.yml` | 带模板标签的 Issue 打开 / 编辑 / 重开 | 跑 `issue-to-pr.mjs`，推送分支、建或更新 PR，在 Issue 下维护一条回复 |
-| `publish.yml` | `launches/**` 推到 `main`；每日 UTC 00:15；手动 | 绑定讨论帖 → 编译 `launchpad.json`（定时运行时顺带刷新热度、撤下到期置顶）→ 推回 `main` |
+| `publish.yml` | `launches/**` 推到 `main`；每日 UTC 00:15；手动 | 绑定讨论帖 → 编译 `launchpad.json`（定时运行时顺带刷新热度、撤下到期置顶）→ 推回 `main` → 对齐讨论帖下架标签 |
+| `discussion-label.yml` | 讨论帖贴上 / 摘掉 `launchpad-delist` | 维护者操作即下架 / 体检后恢复，直接提交 `main` 并编译；非维护者的改动被还原 |
 | `validate.yml` | 所有 PR 与 `main` 推送 | 只读权限下 `npm run validate && npm test` |
 
 ## 上下架
@@ -53,6 +55,8 @@ ZStore「开源广场（Launchpad）」的数据仓：采用与 `z-store-catalog
 | --- | --- |
 | 「上架 / 更新 / 重新上架」（`launchpad-submission`） | 新作品上架；已上架的再提交即更新；已下架的再提交即重新上架 |
 | 「下架 / 恢复上架」（`launchpad-delist`） | 下架；或只填仓库地址恢复已下架作品（会重新体检仓库） |
+
+**维护者直接操作**：在作品的讨论帖上贴 `launchpad-delist` 标签即下架，摘掉即恢复（先重新体检仓库），不经过 PR。
 
 谁都可以提 Issue，是否生效只看维护者是否 merge；PR 正文会标出申请人是否为作者、是否申请置顶等需要核对的点。条目是否在架只由 `launches/<...>.json` 的 `delisted` 字段决定，详见 [docs/delisting.md](docs/delisting.md)。
 

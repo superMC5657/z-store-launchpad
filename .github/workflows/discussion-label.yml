@@ -1,0 +1,54 @@
+name: Discussion Label
+
+# 讨论帖上的 launchpad-delist 标签即下架开关：维护者贴上 = 下架，摘掉 = 体检后恢复。
+# 直接提交 main 并编译 launchpad.json（维护者改标签本身就是审批，不再走 PR）；非维护者的改动被还原。
+
+on:
+  discussion:
+    types: [labeled, unlabeled]
+  # 手动按某个讨论帖的当前标签重新同步一次（如功能上线前就贴好的标签）。
+  workflow_dispatch:
+    inputs:
+      discussion:
+        description: 讨论帖编号
+        required: true
+
+permissions:
+  contents: write
+  discussions: write
+
+# 与 publish.yml 共用并发组，避免两边同时改 launches/ 与 launchpad.json。
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'launchpad-delist'
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.LAUNCHPAD_BOT_TOKEN || github.token }}
+      N: ${{ github.event.discussion.number || inputs.discussion }}
+      ACTOR: ${{ github.event.sender.login || github.actor }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.LAUNCHPAD_BOT_TOKEN || github.token }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node scripts/discussion-label.mjs --discussion "$N" --actor "$ACTOR" --reply reply.md --commit-msg commit.txt
+      - name: Publish change
+        if: hashFiles('commit.txt') != ''
+        run: |
+          node scripts/build-launchpad.mjs
+          npm run validate
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add launches/ launchpad.json
+          git commit -m "$(cat commit.txt) [skip ci]"
+          git pull --rebase origin main
+          git push
+      - name: Reply in discussion
+        if: hashFiles('reply.md') != ''
+        run: node scripts/discussion-label.mjs --comment "$N" --body-file reply.md
