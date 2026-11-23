@@ -37,6 +37,6 @@
   "pin": {
     "pin_tier": "sponsor",
     "pin_order": 1,
-    "pin_days": 30
+    "pin_until": "2026-12-23T10:19:25Z"
   }
 }
