@@ -1,6 +1,7 @@
 name: Issue to PR
 
 # 上架 / 更新 / 下架 / 重新上架 Issue → launches/ 改动 → PR。机器人只建 PR、不合并：维护者手动 merge 即生效，关闭 PR 即驳回。
+# 例外：仓库所有者自助下架 / 恢复（自己下架的）直接提交 main，再触发 Publish 编译，并关闭 Issue。
 # Issue 正文只由脚本经 REST 读取，不插值进 shell。
 
 on:
@@ -10,6 +11,7 @@ on:
 permissions:
   contents: write
   issues: write
+  actions: write
   pull-requests: write
 
 concurrency:
@@ -34,7 +36,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: node scripts/issue-to-pr.mjs --issue "$N" --pr-title title.txt --pr-body body.md --reply reply.md
+      - run: node scripts/issue-to-pr.mjs --issue "$N" --pr-title title.txt --pr-body body.md --reply reply.md --commit-msg commit.txt
       - name: Push branch and open PR
         if: hashFiles('title.txt') != ''
         run: |
@@ -50,5 +52,19 @@ jobs:
           else
             gh pr create --base main --head "$BRANCH" --title "$(cat title.txt)" --body-file body.md
           fi
+      - name: Apply owner self-serve change
+        if: hashFiles('commit.txt') != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add launches/
+          git commit -m "$(cat commit.txt) [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          # 交给 Publish 编译 launchpad.json 并同步讨论帖标签（用默认 token 派发，PAT 不需要 Actions 权限）
+          GH_TOKEN="${{ github.token }}" gh workflow run publish.yml --ref main
       - name: Reply on issue
         run: gh issue comment "$N" --body-file reply.md --edit-last --create-if-none
+      - name: Close issue after self-serve change
+        if: hashFiles('commit.txt') != ''
+        run: gh issue close "$N" --reason completed

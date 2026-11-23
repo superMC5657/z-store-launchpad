@@ -33,7 +33,7 @@ ZStore「开源广场（Launchpad）」的数据仓：采用与 `z-store-catalog
 
 ## 流程：Issue → PR → 维护者手动 merge
 
-作者的上架、更新、下架、重新上架都走这条路，机器人从不合并 PR（维护者直接下架 / 恢复见下文「上下架」）：
+作者的上架、更新都走这条路，机器人从不合并 PR（仓库所有者自助下架 / 恢复、维护者讨论帖标签见下文「上下架」）：
 
 ```
 作者提 Issue ──► issue-to-pr.yml ──► PR（launchpad/issue-<N>，正文 Closes #N）
@@ -54,7 +54,7 @@ ZStore「开源广场（Launchpad）」的数据仓：采用与 `z-store-catalog
 | Issue 模板 | 用途 |
 | --- | --- |
 | 「上架 / 更新 / 重新上架」（`launchpad-submission`） | 新作品上架；已上架的再提交即更新；已下架的再提交即重新上架 |
-| 「下架 / 恢复上架」（`launchpad-delist`） | 下架；或只填仓库地址恢复已下架作品（会重新体检仓库） |
+| 「下架 / 恢复上架」（`launchpad-delist`） | 下架；或只填仓库地址恢复已下架作品（会重新体检仓库）。**仓库所有者本人提交直接生效**，不建 PR |
 
 **维护者直接操作**：在作品的讨论帖上贴 `launchpad-delist` 标签即下架，摘掉即恢复（先重新体检仓库），不经过 PR。
 

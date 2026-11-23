@@ -6,8 +6,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        机器人会生成对应的 PR，维护者核对后合并即生效。下架不删除讨论帖；恢复会重新体检仓库，并沿用原讨论帖与上架时间。
-        The bot opens a PR and a maintainer merges it. Delisting keeps the discussion thread; relisting re-checks the repository and keeps the original thread and launch date.
+        **仓库所有者本人提交即时生效**，无需等待审核；其他人提交会生成 PR，由维护者核对后合并。维护者下架的作品，恢复需要维护者确认。
+        下架不删除讨论帖；恢复会重新体检仓库，并沿用原讨论帖与上架时间。
+        **The repository owner's own request takes effect immediately.** Requests from anyone else open a PR for a maintainer to merge. Launches taken down by a maintainer need a maintainer to relist.
+        Delisting keeps the discussion thread; relisting re-checks the repository and keeps the original thread and launch date.
   - type: input
     id: repo_url
     attributes:

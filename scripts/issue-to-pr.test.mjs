@@ -118,13 +118,31 @@ test('置顶档写入 pin 并提示核对赞助；坑位满时只回复', withDi
   assert.ok(full.reply.includes('坑位已满'));
 }));
 
-test('下架 → 编译后消失并释放置顶；恢复须体检通过，沿用原数据', withDir(async (dir) => {
+test('非所有者申请下架 / 恢复走 PR，等维护者合并', withDir(async (dir) => {
+  await run(handleSubmission, dir, submitBody({ launch_tier: 'spotlight-7d — x' }));
+  const down = await run(handleDelist, dir, delistBody('delist'), { author: 'mallory' });
+  assert.equal(down.prTitle, 'launch: delist HyperTerm (acme/hyper-term)');
+  assert.equal(down.commitMsg, undefined);
+  assert.ok(down.prBody.includes('Closes #7') && down.prBody.includes('释放坑位') && down.prBody.includes('不是原投稿人'));
+  assert.deepEqual(read(dir).delisted, { at: '2027-01-15T00:00:00Z', by: 'mallory' });
+}));
+
+test('维护者下架的条目，所有者不能自助恢复', withDir(async (dir) => {
+  await run(handleSubmission, dir, submitBody());
+  await run(handleDelist, dir, delistBody('delist'), { author: 'maint' });
+  const up = await run(handleDelist, dir, delistBody('relist'));
+  assert.equal(up.commitMsg, undefined);
+  assert.ok(up.prBody.includes('不能自助恢复'));
+}));
+
+test('所有者自助下架 → 直接生效并释放置顶；自助恢复须体检通过，沿用原数据', withDir(async (dir) => {
   await run(handleSubmission, dir, submitBody({ launch_tier: 'spotlight-7d — x' }));
   const before = read(dir);
 
   const down = await run(handleDelist, dir, delistBody('delist', '暂停维护'));
-  assert.equal(down.prTitle, 'launch: delist HyperTerm (acme/hyper-term)');
-  assert.ok(down.prBody.includes('Closes #7') && down.prBody.includes('释放坑位'));
+  assert.equal(down.prTitle, undefined);
+  assert.equal(down.commitMsg, 'launch: delist HyperTerm (acme/hyper-term) by owner @acme (#7)');
+  assert.ok(down.reply.includes('已下架') && down.reply.includes('已释放'));
   const delisted = read(dir);
   assert.deepEqual(delisted.delisted, { at: '2027-01-15T00:00:00Z', by: 'acme', note: '暂停维护' });
   assert.equal(delisted.pin, undefined);
@@ -138,11 +156,13 @@ test('下架 → 编译后消失并释放置顶；恢复须体检通过，沿用
 
   const blocked = await run(handleDelist, dir, delistBody('relist'), { fetchImpl: fakeFetch({ archived: true }) });
   assert.equal(blocked.prTitle, undefined);
+  assert.equal(blocked.commitMsg, undefined);
   assert.ok(read(dir).delisted, '体检失败不改真源');
 
   const up = await run(handleDelist, dir, delistBody('relist'));
   assert.equal(up.action, 'relist');
-  assert.ok(up.prBody.includes('下架记录'));
+  assert.equal(up.commitMsg, 'launch: relist HyperTerm (acme/hyper-term) by owner @acme (#7)');
+  assert.ok(up.reply.includes('已恢复上架'));
   const relisted = read(dir);
   assert.equal(relisted.delisted, undefined);
   assert.equal(relisted.launched_at, before.launched_at);

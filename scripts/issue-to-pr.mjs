@@ -13,11 +13,14 @@
  * | 下架 / 恢复 `launchpad-delist`      | 在架       | delist：写入 `delisted`，释放置顶             |
  * |                                     | 已下架     | relist：重新体检仓库后删除 `delisted`         |
  *
+ * 例外：仓库所有者（`maker.login`）用下架模板下架、或恢复自己下架的条目时直接生效——写 `--commit-msg` 而不是
+ * `--pr-title`，工作流直接提交 main。维护者下架的条目，所有者恢复仍走 PR。
+ *
  * 用户问题（体检失败、条目不存在、无变化）只写 `--reply`，不写 `--pr-title`；工作流据此决定是否建 PR。
- * 只有传了 `--pr-title` 才会写 `launches/`，不传即本地预演。
+ * 只有传了 `--pr-title` 或 `--commit-msg` 才会写 `launches/`，都不传即本地预演。
  *
  * 用法：
- *   node scripts/issue-to-pr.mjs --issue 12 --pr-title pr-title.txt --pr-body pr-body.md --reply reply.md
+ *   node scripts/issue-to-pr.mjs --issue 12 --pr-title pr-title.txt --pr-body pr-body.md --reply reply.md --commit-msg commit.txt
  *   node scripts/issue-to-pr.mjs --body-file issue.md --kind submit --author alice --reply reply.md   # 本地预演
  */
 
@@ -36,6 +39,7 @@ import {
   isDelisted,
   isIsoUtc,
   isMaker,
+  isRepoOwner,
   isoNow,
   optionKey,
   parseIssueForm,
@@ -221,6 +225,26 @@ export async function handleDelist({ body, issueNumber = null, author = '', laun
   }
 
   if (write) writeEntry(file, next);
+
+  // 仓库所有者自助：直接生效、不建 PR。例外：维护者（或他人）下架的条目，所有者不能自行恢复。
+  const selfServe = isRepoOwner(existing, author) && (form.action === 'delist' || isRepoOwner(existing, existing.delisted.by));
+  if (selfServe) {
+    const verb = form.action === 'delist' ? '下架' : '恢复上架';
+    return {
+      action: form.action, id,
+      commitMsg: `launch: ${form.action} ${next.name} (${id}) by owner @${author}${issueNumber ? ` (#${issueNumber})` : ''}`,
+      reply: reply(`✅ 已${verb} / Done`, [
+        form.action === 'delist'
+          ? `\`${id}\` 已由仓库所有者 @${author} 下架，客户端几分钟内刷新后消失；讨论帖保留。想回来时用同一模板选「恢复」即可。`
+          : `\`${id}\` 已由仓库所有者 @${author} 恢复上架，沿用原讨论帖与上架时间，客户端几分钟内可见。`,
+        ...(form.action === 'delist' && existing.pin ? ['', `原置顶（至 ${existing.pin.pin_until}）已释放，恢复上架后不会自动还原。`] : []),
+      ]),
+    };
+  }
+  if (form.action === 'relist' && isRepoOwner(existing, author)) {
+    notes.push(`该条目由 @${existing.delisted.by} 下架，仓库所有者不能自助恢复，需维护者确认。`);
+  }
+
   const pr = prOutput({ action: form.action, data: next, relPath, issueNumber, author, notes, extra: form.note ? [`- 说明：${form.note}`] : [] });
   return {
     action: form.action, id, prTitle: pr.title, prBody: pr.body,
@@ -234,7 +258,7 @@ function parseArgs(argv) {
   const args = { dir: path.join(rootDir, 'launches'), repo: process.env.REPO || process.env.GITHUB_REPOSITORY || LAUNCHPAD_REPO };
   for (let i = 0; i < argv.length; i += 2) {
     const key = argv[i]?.replace(/^--/, '').replace(/-([a-z])/g, (_m, c) => c.toUpperCase());
-    if (!['issue', 'repo', 'bodyFile', 'kind', 'author', 'dir', 'prTitle', 'prBody', 'reply'].includes(key) || argv[i + 1] === undefined) {
+    if (!['issue', 'repo', 'bodyFile', 'kind', 'author', 'dir', 'prTitle', 'prBody', 'reply', 'commitMsg'].includes(key) || argv[i + 1] === undefined) {
       throw new Error(`未知参数或缺少取值: ${argv[i]}`);
     }
     args[key] = argv[i + 1];
@@ -262,11 +286,12 @@ async function main() {
   if (!['submit', 'delist'].includes(kind)) throw new Error('无法判断 Issue 类型（需 launchpad-submission 或 launchpad-delist 标签）');
 
   const handler = kind === 'delist' ? handleDelist : handleSubmission;
-  const out = await handler({ body, issueNumber, author, launchesDir: path.resolve(args.dir), write: Boolean(args.prTitle), token });
+  const out = await handler({ body, issueNumber, author, launchesDir: path.resolve(args.dir), write: Boolean(args.prTitle || args.commitMsg), token });
   if (args.reply) fs.writeFileSync(args.reply, `${out.reply}\n`);
   if (out.prTitle && args.prTitle) fs.writeFileSync(args.prTitle, `${out.prTitle}\n`);
   if (out.prBody && args.prBody) fs.writeFileSync(args.prBody, out.prBody);
-  console.log(out.prTitle ?? out.reply.split('\n')[0]);
+  if (out.commitMsg && args.commitMsg) fs.writeFileSync(args.commitMsg, `${out.commitMsg}\n`);
+  console.log(out.prTitle ?? out.commitMsg ?? out.reply.split('\n')[0]);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {

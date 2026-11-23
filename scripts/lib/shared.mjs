@@ -22,6 +22,12 @@ export function isMaker(entry, login) {
   return [entry.submitted_by, entry.maker?.login].some((v) => typeof v === 'string' && v.toLowerCase() === who);
 }
 
+/** 登录名是否为仓库所有者 `maker.login`（大小写不敏感）；只有所有者能自助下架 / 恢复，代投稿人不算。 */
+export function isRepoOwner(entry, login) {
+  const who = String(login || '').toLowerCase();
+  return Boolean(who && typeof entry?.maker?.login === 'string' && entry.maker.login.toLowerCase() === who);
+}
+
 /** 托管源 → 默认主机。 */
 export const FORGE_HOSTS = {
   github: 'github.com',
