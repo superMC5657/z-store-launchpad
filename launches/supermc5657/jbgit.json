@@ -30,13 +30,12 @@
   "maker_note_en": "jbgit is a terminal Git client inspired by the version control experience of IntelliJ IDEA and JetBrains IDEs.",
   "latest_release_at": "2026-11-22T12:32:14Z",
   "submitted_by": "superMC5657",
-  "pin": {
-    "pin_until": "2026-12-23T09:06:38Z",
-    "pin_tier": "sponsor",
-    "pin_order": 1
-  },
   "discussion_repo": "superMC5657/z-store-launchpad",
   "discussion_number": 3,
   "discussion_node_id": "D_kwDOV4ZaOs4AraNv",
-  "discussion_url": "https://github.com/superMC5657/z-store-launchpad/discussions/3"
+  "discussion_url": "https://github.com/superMC5657/z-store-launchpad/discussions/3",
+  "delisted": {
+    "at": "2026-11-23T09:34:45Z",
+    "by": "superMC5657"
+  }
 }
