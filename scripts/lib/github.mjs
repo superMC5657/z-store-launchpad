@@ -36,6 +36,16 @@ export async function rest(pathOrUrl, { method = 'GET', body, token, fetchImpl =
   return res.json();
 }
 
+/** 只关心状态码的 REST GET（如成员关系探测：204 是、404 否）；网络错误返回 0。 */
+export async function restStatus(pathOrUrl, { token, fetchImpl = fetch } = {}) {
+  const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${API}${pathOrUrl}`;
+  try {
+    return (await fetchImpl(url, { method: 'GET', headers: headers(token) })).status;
+  } catch {
+    return 0;
+  }
+}
+
 /** GraphQL 请求：返回 `data`，`errors` 抛出。 */
 export async function graphql(query, variables, { token, fetchImpl = fetch } = {}) {
   const res = await fetchImpl(`${API}/graphql`, {

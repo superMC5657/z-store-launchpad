@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  activatePendingPins,
   buildManifest,
   launchRelPath,
   loadAndValidateSources,
@@ -220,6 +221,37 @@ test('已下架条目不占置顶坑位', () => {
     }
     // 5 个未到期置顶，但第 5 个已下架 → 有效置顶 4 个，通过
     assert.deepEqual(loadAndValidateSources(tmp, { nowMs: NOW }).errors, []);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('待生效置顶：校验、不进 pinned、不被当作过期清理，发布时按坑位排队开始计时', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lp-pend-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'acme'), { recursive: true });
+    const write = (i, pin, extra = {}) =>
+      fs.writeFileSync(path.join(tmp, 'acme', `app${i}.json`), JSON.stringify(sourceItem({ id: `acme/app${i}`, repo: `app${i}`, pin, ...extra })));
+    for (let i = 1; i <= 3; i++) write(i, { pin_until: '2027-01-20T00:00:00Z', pin_tier: 'sponsor', pin_order: i });
+    write(4, { pin_days: 7, pin_tier: 'sponsor', pin_order: 4 });
+    write(5, { pin_days: 3, pin_tier: 'sponsor', pin_order: 4 });
+    write(6, { pin_days: 9, pin_tier: 'sponsor' }, { delisted: { at: '2027-01-10T00:00:00Z', by: 'm' } });
+
+    assert.deepEqual(loadAndValidateSources(tmp, { nowMs: NOW }).errors, []);
+    assert.deepEqual(validateLaunchSource(sourceItem({ pin: { pin_days: 0, pin_tier: 'sponsor' } })).filter((e) => e.startsWith('pin')), ['pin.pin_days: 必须是 1..=365 的整数']);
+    assert.equal(validateLaunchSource(sourceItem({ pin: { pin_days: 3, pin_until: '2027-01-20T00:00:00Z', pin_tier: 'sponsor' } })).some((e) => e.includes('必须且只能有一个')), true);
+
+    const { entries } = loadAndValidateSources(tmp, { nowMs: NOW });
+    assert.equal(buildManifest({ entries, nowMs: NOW, allowPlaceholderDiscussion: true }).pinned.length, 3);
+    assert.equal(pruneExpiredPinsInSources(tmp, NOW), false, '待生效置顶不是过期');
+
+    assert.equal(activatePendingPins(tmp, NOW), 1, '只剩 1 个坑位');
+    const read = (i) => JSON.parse(fs.readFileSync(path.join(tmp, 'acme', `app${i}.json`), 'utf8')).pin;
+    assert.deepEqual(read(4), { pin_tier: 'sponsor', pin_order: 4, pin_until: '2027-01-22T00:00:00Z' });
+    assert.deepEqual(read(5), { pin_days: 3, pin_tier: 'sponsor', pin_order: 4 }, '坑位满，排队');
+    assert.equal(read(6).pin_days, 9, '已下架的暂停置顶不生效');
+    assert.equal(activatePendingPins(tmp, Date.parse('2027-01-21T00:00:00Z')), 1, '前 3 个到期即腾出坑位');
+    assert.equal(read(5).pin_until, '2027-01-24T00:00:00Z');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

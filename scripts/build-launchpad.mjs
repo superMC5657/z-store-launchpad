@@ -6,12 +6,14 @@
  * - PR 阶段允许条目尚未绑定 Discussion（合入 main 后由 `--bind-discussions` 创建并回写）；
  * - 编译时保留既有 `launchpad.json` 的动态计数（stars / forks / latest_version / 讨论互动数）；
  * - 置顶信息写在条目 `pin` 字段内，编译时自动剔除过期置顶、重排 `pin_order` 并校验坑位上限（≤ 4）；
+ *   `pin_days`（无 `pin_until`）为待生效 / 暂停中的置顶，不进 `pinned`，由 `--activate-pins` 在发布时开始计时；
  * - 带 `delisted` 字段的条目已下架：文件保留在规范路径，但不进入 `items` / `pinned`，也不占置顶坑位。
  *
  * 用法：
  *   node scripts/build-launchpad.mjs                      # 编译 launches/ -> launchpad.json
  *   node scripts/build-launchpad.mjs --check-sources      # 仅校验 launches/ 全部真源与坑位上限
  *   node scripts/build-launchpad.mjs --bind-discussions   # 为缺讨论绑定条目在 Launches 创建 Discussion
+ *   node scripts/build-launchpad.mjs --activate-pins      # 清理到期置顶，并让待生效置顶（pin_days）开始计时
  */
 
 import fs from 'node:fs';
@@ -23,14 +25,18 @@ import {
   LAUNCHPAD_REPO,
   MAKER_NOTE_MAX,
   MANIFEST_VERSION,
+  PIN_DAYS_MAX,
   PIN_TIERS,
   PLATFORMS,
   SPOTLIGHT_MAX_SLOTS,
   charCount,
   deriveId,
+  addDaysIso,
   formatJson,
+  isActivePin,
   isDelisted,
   isIsoUtc,
+  isPendingPin,
   isOsiLicense,
   isoNow,
   sortItems,
@@ -152,7 +158,12 @@ export function validateLaunchSource(entry, expectedRelPath = null) {
   if (entry.pin !== undefined && entry.pin !== null) {
     if (typeof entry.pin !== 'object' || Array.isArray(entry.pin)) errors.push('pin: 必须是对象');
     else {
-      if (!isIsoUtc(entry.pin.pin_until)) errors.push('pin.pin_until: 非法 ISO-8601 时间');
+      const hasUntil = entry.pin.pin_until !== undefined;
+      if (hasUntil === (entry.pin.pin_days !== undefined)) errors.push('pin: pin_until（已开始计时）与 pin_days（待生效）必须且只能有一个');
+      else if (hasUntil && !isIsoUtc(entry.pin.pin_until)) errors.push('pin.pin_until: 非法 ISO-8601 时间');
+      else if (!hasUntil && !(Number.isInteger(entry.pin.pin_days) && entry.pin.pin_days >= 1 && entry.pin.pin_days <= PIN_DAYS_MAX)) {
+        errors.push(`pin.pin_days: 必须是 1..=${PIN_DAYS_MAX} 的整数`);
+      }
       if (!PIN_TIERS.includes(entry.pin.pin_tier)) errors.push(`pin.pin_tier: 仅支持 ${PIN_TIERS.join(' / ')}`);
       if (
         entry.pin.pin_order !== undefined &&
@@ -174,6 +185,7 @@ function validateDelisted(d) {
   const errors = [];
   if (!isIsoUtc(d.at)) errors.push('delisted.at: 非法 ISO-8601 时间');
   if (typeof d.by !== 'string' || !d.by.trim()) errors.push('delisted.by: 必填字符串');
+  if (d.by_owner !== undefined && d.by_owner !== true) errors.push('delisted.by_owner: 只能为 true');
   if (d.note !== undefined) {
     if (typeof d.note !== 'string') errors.push('delisted.note: 必须是字符串');
     else if (charCount(d.note) > MAKER_NOTE_MAX * 2 || /[\r\n\u0000-\u001f]/.test(d.note)) {
@@ -206,7 +218,7 @@ export function loadAndValidateSources(launchesDir, { nowMs = Date.now() } = {})
       if (seenIds.has(parsed.id)) errors.push(`launches/${rel}: 重复 id ${parsed.id}`);
       seenIds.add(parsed.id);
     }
-    if (!isDelisted(parsed) && parsed?.pin && isIsoUtc(parsed.pin.pin_until) && Date.parse(parsed.pin.pin_until) > nowMs) {
+    if (!isDelisted(parsed) && isActivePin(parsed?.pin, nowMs)) {
       activePins += 1;
     }
     entries.push({ file, rel, data: parsed });
@@ -271,7 +283,7 @@ export function buildManifest({ entries, prevManifest = null, nowMs = Date.now()
   );
 
   const activePinEntries = listed
-    .filter(({ data }) => data.pin && isIsoUtc(data.pin.pin_until) && Date.parse(data.pin.pin_until) > nowMs)
+    .filter(({ data }) => isActivePin(data.pin, nowMs))
     .sort((a, b) => {
       const oa = a.data.pin.pin_order ?? 999;
       const ob = b.data.pin.pin_order ?? 999;
@@ -299,19 +311,41 @@ export function buildManifest({ entries, prevManifest = null, nowMs = Date.now()
   };
 }
 
-/** 清理 `launches/` 中过期 `pin` 字段并整理 `pin_order`。 */
+/** 清理 `launches/` 中过期 `pin` 字段（待生效 / 暂停中的 `pin_days` 不动）。 */
 export function pruneExpiredPinsInSources(launchesDir, nowMs = Date.now()) {
   const files = collectLaunchFiles(launchesDir);
   let changed = false;
   for (const file of files) {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (data.pin && (!isIsoUtc(data.pin.pin_until) || Date.parse(data.pin.pin_until) <= nowMs)) {
+    if (data.pin && !isPendingPin(data.pin) && !isActivePin(data.pin, nowMs)) {
       delete data.pin;
       fs.writeFileSync(file, formatJson(data));
       changed = true;
     }
   }
   return changed;
+}
+
+/**
+ * 让在架条目的待生效置顶（`pin_days`）开始计时：`pin_until = now + pin_days`。
+ * 坑位满时按 `pin_order`、上架时间排队，等有坑位释放后的下一次发布再生效。返回本次生效数量。
+ */
+export function activatePendingPins(launchesDir, nowMs = Date.now()) {
+  const rows = collectLaunchFiles(launchesDir).map((file) => ({ file, data: JSON.parse(fs.readFileSync(file, 'utf8')) }));
+  const listed = rows.filter(({ data }) => !isDelisted(data));
+  let active = listed.filter(({ data }) => isActivePin(data.pin, nowMs)).length;
+  const queue = listed
+    .filter(({ data }) => isPendingPin(data.pin))
+    .sort((a, b) => (a.data.pin.pin_order ?? 999) - (b.data.pin.pin_order ?? 999) || Date.parse(a.data.launched_at) - Date.parse(b.data.launched_at) || a.data.id.localeCompare(b.data.id));
+  let activated = 0;
+  for (const { file, data } of queue) {
+    if (active >= SPOTLIGHT_MAX_SLOTS) break;
+    const { pin_days: days, ...rest } = data.pin;
+    fs.writeFileSync(file, formatJson({ ...data, pin: { ...rest, pin_until: addDaysIso(nowMs, days) } }));
+    active += 1;
+    activated += 1;
+  }
+  return activated;
 }
 
 /** 为尚未绑定 `discussion_number` 的条目创建（或复用）Discussion，并回写真源文件。 */
@@ -342,6 +376,7 @@ function parseArgs(argv) {
     out: path.join(rootDir, 'launchpad.json'),
     checkSources: false,
     bindDiscussions: false,
+    activatePins: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -349,6 +384,7 @@ function parseArgs(argv) {
     else if (a === '--out') args.out = path.resolve(argv[++i]);
     else if (a === '--check-sources') args.checkSources = true;
     else if (a === '--bind-discussions') args.bindDiscussions = true;
+    else if (a === '--activate-pins') args.activatePins = true;
     else throw new Error(`未知参数: ${a}`);
   }
   return args;
@@ -360,6 +396,11 @@ async function main() {
   if (args.bindDiscussions) {
     if (!token) throw new Error('--bind-discussions 需要 GITHUB_TOKEN');
     await bindPendingDiscussions(args.launchesDir, { token });
+  }
+  if (args.activatePins) {
+    pruneExpiredPinsInSources(args.launchesDir);
+    const n = activatePendingPins(args.launchesDir);
+    if (n) console.log(`✓ ${n} 个置顶开始计时`);
   }
 
   const { entries, errors: sourceErrors } = loadAndValidateSources(args.launchesDir);

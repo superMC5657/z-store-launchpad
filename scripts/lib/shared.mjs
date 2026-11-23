@@ -177,6 +177,29 @@ export function sortItems(items) {
   );
 }
 
+export const PIN_DAYS_MAX = 365;
+
+/** 置顶已开始计时（有 `pin_until`）且未到期。 */
+export function isActivePin(pin, nowMs) {
+  return Boolean(pin && isIsoUtc(pin.pin_until) && Date.parse(pin.pin_until) > nowMs);
+}
+
+/**
+ * 待生效置顶：只有 `pin_days`、还没有 `pin_until`。新赞助在合并发布时才开始计时；
+ * 下架时进行中的置顶也转成这种形态（暂停），恢复上架后继续。
+ */
+export function isPendingPin(pin) {
+  return Boolean(pin && pin.pin_until === undefined && Number.isInteger(pin.pin_days) && pin.pin_days > 0);
+}
+
+/** 下架时暂停置顶：剩余时间向上取整为天数；没有置顶或已到期返回 `undefined`。 */
+export function pausePin(pin, nowMs) {
+  if (isPendingPin(pin)) return pin;
+  if (!isActivePin(pin, nowMs)) return undefined;
+  const { pin_until: until, ...rest } = pin;
+  return { ...rest, pin_days: Math.ceil((Date.parse(until) - nowMs) / 86_400_000) };
+}
+
 /** 移除已过期置顶并按原顺序重排 `pin_order = 1..k`（条目本体保留在 items）。 */
 export function dropExpiredPins(pinned, nowMs) {
   return pinned

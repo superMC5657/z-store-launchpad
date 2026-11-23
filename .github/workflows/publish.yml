@@ -1,19 +1,21 @@
 name: Publish
 
-# 维护者 merge 后：为新条目绑定讨论帖 → 从 launches/ 编译 launchpad.json → 推送 main → 对齐讨论帖下架标签。
-# 每日定时顺带撤下到期置顶、刷新星数与讨论热度（不做任何上下架）。
+# 维护者 merge 后：为新条目绑定讨论帖 → 置顶开始计时 → 从 launches/ 编译 launchpad.json → 推送 main → 对齐讨论帖下架标签。
+# 每小时：撤下到期置顶、让排队的置顶接上（无变化不提交）。每日：再刷新星数与讨论热度（不做任何上下架）。
 
 on:
   push:
     branches: [main]
     paths: ['launches/**']
   schedule:
-    - cron: '15 0 * * *'
+    - cron: '15 0 * * *' # 每日：全量刷新
+    - cron: '45 * * * *' # 每小时：只处理置顶到期 / 生效
   workflow_dispatch:
 
 permissions:
   contents: write
   discussions: write
+  actions: write
 
 concurrency:
   group: publish
@@ -24,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.LAUNCHPAD_BOT_TOKEN || github.token }}
+      HOURLY: ${{ github.event.schedule == '45 * * * *' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -31,8 +34,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: node scripts/build-launchpad.mjs --bind-discussions
-      - if: github.event_name != 'push'
+      - run: node scripts/build-launchpad.mjs --bind-discussions --activate-pins
+      - if: github.event_name == 'workflow_dispatch' || github.event.schedule == '15 0 * * *'
         run: node scripts/refresh-pulse-and-pins.mjs
       - run: npm run validate
       - run: |
@@ -40,5 +43,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add launchpad.json launches/ state/
           git diff --cached --quiet || { git commit -m "chore: publish launchpad.json [skip ci]" && git pull --rebase origin main && git push; }
-      # 下架 / 恢复 Issue 合并后，把讨论帖的 launchpad-delist 标签对齐到真源状态。
-      - run: node scripts/discussion-label.mjs --sync-all
+      # 下架 / 恢复 Issue 合并后，把讨论帖的 launchpad-delist 标签对齐到真源状态（每小时那次跳过，省 API）。
+      - if: env.HOURLY != 'true'
+        run: node scripts/discussion-label.mjs --sync-all
+      # 保活：GitHub 会停用 60 天无活动仓库里的定时工作流，每日运行时重新启用一次以重置计时。
+      - if: github.event.schedule == '15 0 * * *'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/publish.yml/enable"

@@ -31,19 +31,21 @@ function fakeFetch({ archived = false } = {}) {
 const run = (e, hasLabel, opts = {}) =>
   handleDiscussionLabel({ entry: e, hasLabel, actor: 'maint', authorized: true, nowMs: NOW, fetchImpl: fakeFetch(), ...opts });
 
-test('维护者贴标签即下架，并释放置顶', async () => {
+test('维护者贴标签即下架，进行中的置顶暂停为剩余天数', async () => {
   const out = await run(entry({ pin: { pin_until: '2027-02-01T00:00:00Z', pin_tier: 'sponsor', pin_order: 1 } }), true);
   assert.equal(out.action, 'delist');
   assert.deepEqual(out.next.delisted, { at: '2027-01-15T00:00:00Z', by: 'maint' });
-  assert.equal(out.next.pin, undefined);
-  assert.ok(out.reply.includes('释放坑位'));
+  assert.deepEqual(out.next.pin, { pin_tier: 'sponsor', pin_order: 1, pin_days: 17 });
+  assert.ok(out.reply.includes('剩余 17 天'));
   assert.deepEqual(validateLaunchSource(out.next), []);
 });
 
 test('维护者摘标签：体检通过即恢复，失败则贴回标签', async () => {
-  const down = entry({ delisted: { at: '2027-01-10T00:00:00Z', by: 'maint' } });
+  const down = entry({ delisted: { at: '2027-01-10T00:00:00Z', by: 'maint' }, pin: { pin_tier: 'sponsor', pin_order: 1, pin_days: 17 } });
   const up = await run(down, false);
   assert.equal(up.action, 'relist');
+  assert.deepEqual(up.next.pin, down.pin, '暂停的置顶原样带回，发布时再计时');
+  assert.ok(up.reply.includes('剩余 17 天'));
   assert.equal(up.next.delisted, undefined);
   assert.equal(up.next.launched_at, down.launched_at);
 

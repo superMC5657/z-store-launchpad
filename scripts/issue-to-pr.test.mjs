@@ -104,9 +104,10 @@ test('重复投稿：无变化不建 PR；星数变化不算变化；改自荐�
   assert.equal(src.submitted_by, 'acme');
 }));
 
-test('置顶档写入 pin 并提示核对赞助；坑位满时只回复', withDir(async (dir) => {
+test('置顶档只记天数（合并发布时才计时）并提示核对赞助；坑位满时只回复', withDir(async (dir) => {
   const out = await run(handleSubmission, dir, submitBody({ launch_tier: 'spotlight-7d — x' }));
-  assert.deepEqual(read(dir).pin, { pin_until: '2027-01-22T00:00:00Z', pin_tier: 'sponsor', pin_order: 1 });
+  assert.deepEqual(read(dir).pin, { pin_days: 7, pin_tier: 'sponsor', pin_order: 1 });
+  assert.ok(out.prBody.includes('从合并发布时开始计时'));
   assert.ok(out.prBody.includes('赞助凭证'));
 
   for (let i = 1; i <= 4; i++) {
@@ -123,7 +124,7 @@ test('非所有者申请下架 / 恢复走 PR，等维护者合并', withDir(asy
   const down = await run(handleDelist, dir, delistBody('delist'), { author: 'mallory' });
   assert.equal(down.prTitle, 'launch: delist HyperTerm (acme/hyper-term)');
   assert.equal(down.commitMsg, undefined);
-  assert.ok(down.prBody.includes('Closes #7') && down.prBody.includes('释放坑位') && down.prBody.includes('不是原投稿人'));
+  assert.ok(down.prBody.includes('Closes #7') && down.prBody.includes('暂停') && down.prBody.includes('不是原投稿人'));
   assert.deepEqual(read(dir).delisted, { at: '2027-01-15T00:00:00Z', by: 'mallory' });
 }));
 
@@ -135,17 +136,17 @@ test('维护者下架的条目，所有者不能自助恢复', withDir(async (di
   assert.ok(up.prBody.includes('不能自助恢复'));
 }));
 
-test('所有者自助下架 → 直接生效并释放置顶；自助恢复须体检通过，沿用原数据', withDir(async (dir) => {
+test('所有者自助下架 → 直接生效、置顶暂停；自助恢复须体检通过，沿用原数据与置顶', withDir(async (dir) => {
   await run(handleSubmission, dir, submitBody({ launch_tier: 'spotlight-7d — x' }));
   const before = read(dir);
 
   const down = await run(handleDelist, dir, delistBody('delist', '暂停维护'));
   assert.equal(down.prTitle, undefined);
-  assert.equal(down.commitMsg, 'launch: delist HyperTerm (acme/hyper-term) by owner @acme (#7)');
-  assert.ok(down.reply.includes('已下架') && down.reply.includes('已释放'));
+  assert.equal(down.commitMsg, 'launch: delist HyperTerm (acme/hyper-term) by author @acme (#7)');
+  assert.ok(down.reply.includes('已下架') && down.reply.includes('置顶已暂停'));
   const delisted = read(dir);
-  assert.deepEqual(delisted.delisted, { at: '2027-01-15T00:00:00Z', by: 'acme', note: '暂停维护' });
-  assert.equal(delisted.pin, undefined);
+  assert.deepEqual(delisted.delisted, { at: '2027-01-15T00:00:00Z', by: 'acme', by_owner: true, note: '暂停维护' });
+  assert.deepEqual(delisted.pin, { pin_days: 7, pin_tier: 'sponsor', pin_order: 1 });
   const { entries, errors } = loadAndValidateSources(dir, { nowMs: NOW });
   assert.deepEqual(errors, []);
   const manifest = buildManifest({ entries, nowMs: NOW, allowPlaceholderDiscussion: true });
@@ -161,7 +162,8 @@ test('所有者自助下架 → 直接生效并释放置顶；自助恢复须体
 
   const up = await run(handleDelist, dir, delistBody('relist'));
   assert.equal(up.action, 'relist');
-  assert.equal(up.commitMsg, 'launch: relist HyperTerm (acme/hyper-term) by owner @acme (#7)');
+  assert.equal(up.commitMsg, 'launch: relist HyperTerm (acme/hyper-term) by author @acme (#7)');
+  assert.deepEqual(read(dir).pin, { pin_days: 7, pin_tier: 'sponsor', pin_order: 1 });
   assert.ok(up.reply.includes('已恢复上架'));
   const relisted = read(dir);
   assert.equal(relisted.delisted, undefined);
@@ -181,4 +183,18 @@ test('下架申请：条目不存在、仓库地址无效只回复', withDir(asy
   assert.ok((await run(handleDelist, dir, delistBody('delist'))).reply.includes('没有这个作品'));
   const bad = form(DELIST_FORM_HEADINGS, { repo_url: 'http://nope', action: 'delist — x' });
   assert.ok((await run(handleDelist, dir, bad)).reply.includes('无法识别'));
+}));
+
+test('组织仓库：公开成员可自助下架，非成员走 PR', withDir(async (dir) => {
+  await run(handleSubmission, dir, submitBody());
+  const orgFetch = (member) => async (url) =>
+    String(url).includes('/public_members/') ? { ok: member, status: member ? 204 : 404, json: async () => null } : fakeFetch()(url);
+  const pr = await run(handleDelist, dir, delistBody('delist'), { author: 'bob', fetchImpl: orgFetch(false) });
+  assert.ok(pr.prTitle && !pr.commitMsg);
+  fs.writeFileSync(path.join(dir, ...FILE), JSON.stringify({ ...read(dir), delisted: undefined }));
+  const direct = await run(handleDelist, dir, delistBody('delist'), { author: 'bob', fetchImpl: orgFetch(true) });
+  assert.equal(direct.commitMsg, 'launch: delist HyperTerm (acme/hyper-term) by author @bob (#7)');
+  assert.equal(read(dir).delisted.by_owner, true);
+  const up = await run(handleDelist, dir, delistBody('relist'), { author: 'bob', fetchImpl: orgFetch(true) });
+  assert.ok(up.commitMsg, '作者自己下架的可以自助恢复');
 }));

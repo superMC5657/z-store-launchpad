@@ -27,13 +27,13 @@ ZStore「开源广场（Launchpad）」的数据仓：采用与 `z-store-catalog
 | `scripts/build-launchpad.mjs` | 校验 `launches/`、为新条目创建 Discussion、编译 `launchpad.json` |
 | `scripts/validate-launchpad.mjs` | 产物结构与跨字段不变量校验 |
 | `scripts/discussion-label.mjs` | 讨论帖 `launchpad-delist` 标签 ↔ 条目 `delisted` 双向同步 |
-| `scripts/refresh-pulse-and-pins.mjs` | 每日撤下到期置顶，刷新星数与讨论热度 |
+| `scripts/refresh-pulse-and-pins.mjs` | 每日刷新星数与讨论热度（到期置顶由 `build-launchpad.mjs --activate-pins` 每小时处理） |
 | `scripts/lib/` | `shared.mjs`（协议 / 分类 / 平台 / 表单解析）、`github.mjs`（API）、`discussions.mjs`（讨论帖） |
 | `scripts/bootstrap-repo.sh` | 创建两个模板标签，打印需手动开启的仓库设置 |
 
 ## 流程：Issue → PR → 维护者手动 merge
 
-作者的上架、更新都走这条路，机器人从不合并 PR（仓库所有者自助下架 / 恢复、维护者讨论帖标签见下文「上下架」）：
+作者的上架、更新都走这条路，机器人从不合并 PR（作者自助下架 / 恢复、维护者讨论帖标签见下文「上下架」）：
 
 ```
 作者提 Issue ──► issue-to-pr.yml ──► PR（launchpad/issue-<N>，正文 Closes #N）
@@ -45,7 +45,7 @@ ZStore「开源广场（Launchpad）」的数据仓：采用与 `z-store-catalog
 | 工作流 | 触发 | 做什么 |
 | --- | --- | --- |
 | `issue-to-pr.yml` | 带模板标签的 Issue 打开 / 编辑 / 重开 | 跑 `issue-to-pr.mjs`，推送分支、建或更新 PR，在 Issue 下维护一条回复 |
-| `publish.yml` | `launches/**` 推到 `main`；每日 UTC 00:15；手动 | 绑定讨论帖 → 编译 `launchpad.json`（定时运行时顺带刷新热度、撤下到期置顶）→ 推回 `main` → 对齐讨论帖下架标签 |
+| `publish.yml` | `launches/**` 推到 `main`；每小时；每日 UTC 00:15；手动 | 绑定讨论帖 → 置顶开始计时 / 撤下到期置顶 → 编译 `launchpad.json`（每日那次顺带刷新热度、重新启用定时防止 60 天停用）→ 推回 `main` → 对齐讨论帖下架标签 |
 | `discussion-label.yml` | 讨论帖贴上 / 摘掉 `launchpad-delist` | 维护者操作即下架 / 体检后恢复，直接提交 `main` 并编译；非维护者的改动被还原 |
 | `validate.yml` | 所有 PR 与 `main` 推送 | 只读权限下 `npm run validate && npm test` |
 
@@ -54,7 +54,7 @@ ZStore「开源广场（Launchpad）」的数据仓：采用与 `z-store-catalog
 | Issue 模板 | 用途 |
 | --- | --- |
 | 「提交或更新作品」（`launchpad-submission`） | 填资料：新作品上架；已上架的再提交即更新资料；已下架的提交后带新资料恢复 |
-| 「下架或恢复作品」（`launchpad-delist`） | 开关：资料不变，只下架或恢复（恢复会重新体检仓库）。**仓库所有者本人提交直接生效**，不建 PR |
+| 「下架或恢复作品」（`launchpad-delist`） | 开关：资料不变，只下架或恢复（恢复会重新体检仓库）。**作者本人（仓库 owner 或组织公开成员）提交直接生效**，不建 PR |
 
 **维护者直接操作**：在作品的讨论帖上贴 `launchpad-delist` 标签即下架，摘掉即恢复（先重新体检仓库），不经过 PR。
 

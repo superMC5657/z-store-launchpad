@@ -7,7 +7,7 @@
  *
  * | 讨论帖标签       | 条目当前状态 | 结果                                                 |
  * |------------------|--------------|------------------------------------------------------|
- * | 贴上             | 在架         | delist：写入 `delisted`（by = 维护者），释放置顶     |
+ * | 贴上             | 在架         | delist：写入 `delisted`（by = 维护者），置顶暂停     |
  * | 摘掉             | 已下架       | relist：重新体检仓库，通过后删除 `delisted`          |
  * | 摘掉（体检失败） | 已下架       | 不改真源，把标签贴回去并在帖子里说明                 |
  * | 与状态一致       | —            | 不做任何事（机器人自己同步标签触发的事件走这里）     |
@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LAUNCHPAD_REPO, formatJson, isDelisted, isoNow, parseRepoUrl } from './lib/shared.mjs';
+import { LAUNCHPAD_REPO, formatJson, isDelisted, isPendingPin, isoNow, parseRepoUrl, pausePin } from './lib/shared.mjs';
 import { graphql, rest } from './lib/github.mjs';
 import { collectLaunchFiles } from './build-launchpad.mjs';
 import { evaluateRepo, fetchRepoFacts } from './verify-submission.mjs';
@@ -75,8 +75,13 @@ export async function handleDiscussionLabel({ entry, hasLabel, actor, authorized
     const next = { ...entry, delisted: { at: isoNow(nowMs), by: actor } };
     const lines = [`🔻 已下架：\`${entry.id}\` 由 @${actor} 从开源广场撤下，客户端刷新后消失。讨论帖保留，摘掉 \`${DELIST_LABEL}\` 标签即可恢复。`];
     if (next.pin) {
-      lines.push('', `原置顶（至 ${next.pin.pin_until}）已释放坑位。`);
-      delete next.pin;
+      const paused = pausePin(next.pin, nowMs);
+      if (paused) {
+        next.pin = paused;
+        lines.push('', `置顶已暂停并释放坑位，剩余 ${paused.pin_days} 天在恢复上架后继续。`);
+      } else {
+        delete next.pin;
+      }
     }
     return { action: 'delist', next, reply: lines.join('\n') };
   }
@@ -97,7 +102,10 @@ export async function handleDiscussionLabel({ entry, hasLabel, actor, authorized
   return {
     action: 'relist',
     next,
-    reply: `✅ 已恢复上架：\`${entry.id}\` 由 @${actor} 恢复，沿用原讨论帖与上架时间（原下架于 ${entry.delisted.at} · @${entry.delisted.by}）。`,
+    reply: [
+      `✅ 已恢复上架：\`${entry.id}\` 由 @${actor} 恢复，沿用原讨论帖与上架时间（原下架于 ${entry.delisted.at} · @${entry.delisted.by}）。`,
+      ...(isPendingPin(next.pin) ? ['', `置顶剩余 ${next.pin.pin_days} 天，恢复后继续计时（坑位已满时排队）。`] : []),
+    ].join('\n'),
   };
 }
 

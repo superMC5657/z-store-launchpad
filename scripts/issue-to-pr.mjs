@@ -13,8 +13,9 @@
  * | 下架或恢复 `launchpad-delist`       | 在架       | delist：写入 `delisted`，释放置顶             |
  * |                                     | 已下架     | relist：重新体检仓库后删除 `delisted`         |
  *
- * 例外：仓库所有者（`maker.login`）用下架模板下架、或恢复自己下架的条目时直接生效——写 `--commit-msg` 而不是
- * `--pr-title`，工作流直接提交 main。维护者下架的条目，所有者恢复仍走 PR。
+ * 例外：作者（仓库所有者 `maker.login`，或组织仓库的公开成员）用下架模板下架、或恢复自己下架的条目时直接生效——
+ * 写 `--commit-msg` 而不是 `--pr-title`，工作流直接提交 main。维护者下架的条目，作者恢复仍走 PR。
+ * 置顶：申请时只写 `pin_days`，合并发布时才开始计时；下架时进行中的置顶暂停为剩余天数，恢复后继续。
  *
  * 用户问题（体检失败、条目不存在、无变化）只写 `--reply`，不写 `--pr-title`；工作流据此决定是否建 PR。
  * 只有传了 `--pr-title` 或 `--commit-msg` 才会写 `launches/`，都不传即本地预演。
@@ -31,22 +32,23 @@ import {
   LAUNCHPAD_REPO,
   MAKER_NOTE_MAX,
   SPOTLIGHT_MAX_SLOTS,
-  addDaysIso,
   charCount,
   deriveId,
   foldLine,
   formatJson,
   isDelisted,
-  isIsoUtc,
+  isActivePin,
   isMaker,
+  isPendingPin,
   isRepoOwner,
   isoNow,
+  pausePin,
   optionKey,
   parseIssueForm,
   parseLinkedDiscussion,
   parseRepoUrl,
 } from './lib/shared.mjs';
-import { rest } from './lib/github.mjs';
+import { rest, restStatus } from './lib/github.mjs';
 import { resolveDiscussion } from './lib/discussions.mjs';
 import { evaluateRepo, fetchRepoFacts, renderReport, verifySubmission } from './verify-submission.mjs';
 import { launchFilePath, loadAndValidateSources, validateLaunchSource } from './build-launchpad.mjs';
@@ -74,6 +76,13 @@ export function parseDelistForm(body) {
 export function pinDays(launchTier) {
   const m = /^spotlight-(\d+)d$/i.exec(String(launchTier || '').trim());
   return m ? Number(m[1]) : 0;
+}
+
+/** 仓库属于组织时，申请人是否为该组织的公开成员（GitHub `public_members` 返回 204）。 */
+async function isPublicOrgMember(entry, login, { token, fetchImpl }) {
+  if (entry.forge !== 'github' || !login || !entry.maker?.login || isRepoOwner(entry, login)) return false;
+  const status = await restStatus(`/orgs/${encodeURIComponent(entry.maker.login)}/public_members/${encodeURIComponent(login)}`, { token, fetchImpl });
+  return status === 204;
 }
 
 function readSource(file) {
@@ -147,18 +156,20 @@ export async function handleSubmission({ body, issueNumber = null, author = '', 
     const { entries } = loadAndValidateSources(launchesDir, { nowMs });
     const otherPins = entries
       .map(({ data }) => data)
-      .filter((d) => d.id !== item.id && !isDelisted(d) && d.pin && isIsoUtc(d.pin.pin_until) && Date.parse(d.pin.pin_until) > nowMs);
+      // 进行中的置顶 + 在架条目里排队待生效的置顶都占坑位
+      .filter((d) => d.id !== item.id && !isDelisted(d) && (isActivePin(d.pin, nowMs) || isPendingPin(d.pin)));
     if (otherPins.length >= SPOTLIGHT_MAX_SLOTS) {
-      const earliest = otherPins.map((d) => d.pin.pin_until).sort()[0];
+      const earliest = otherPins.filter((d) => isActivePin(d.pin, nowMs)).map((d) => d.pin.pin_until).sort()[0] ?? '排队中的置顶结束后';
       return replyOnly('❌ 置顶坑位已满 / Spotlight is full', [
         `${SPOTLIGHT_MAX_SLOTS} 个坑位已满，最早 **${earliest}** 释放。可在那之后编辑本 Issue，或把档位改成 \`free\`。`,
         `All ${SPOTLIGHT_MAX_SLOTS} slots are taken until **${earliest}**. Edit this issue after that, or switch the tier to \`free\`.`,
       ]);
     }
-    next.pin = { pin_until: addDaysIso(nowMs, days), pin_tier: 'sponsor', pin_order: existing?.pin?.pin_order || otherPins.length + 1 };
-    notes.push(`申请置顶 ${days} 天（${sub.launch_tier}），请先核对赞助凭证；\`pin_until\` 按建 PR 时间计算，可在合并前修改。`);
-  } else if (existing?.pin && !isDelisted(existing)) {
-    next.pin = existing.pin; // 更新普通字段不影响进行中的置顶
+    // 只记天数，合并发布时才开始计时（publish.yml 的 --activate-pins），审核耽搁的时间不算在赞助期里。
+    next.pin = { pin_days: days, pin_tier: 'sponsor', pin_order: existing?.pin?.pin_order || otherPins.length + 1 };
+    notes.push(`申请置顶 ${days} 天（${sub.launch_tier}），请先核对赞助凭证；从合并发布时开始计时（如需指定结束时间，可在合并前把 \`pin_days\` 换成 \`pin_until\`）。`);
+  } else if (existing?.pin) {
+    next.pin = existing.pin; // 更新普通字段不影响进行中（或暂停中）的置顶
   }
 
   const action = !existing ? 'add' : isDelisted(existing) ? 'relist' : 'update';
@@ -202,14 +213,24 @@ export async function handleDelist({ body, issueNumber = null, author = '', laun
 
   const notes = [];
   if (author && !isMaker(existing, author)) notes.push(`申请人 @${author} 不是原投稿人或仓库所有者。`);
+  // 作者 = 仓库所有者本人，或仓库属于组织时该组织的公开成员。
+  const isAuthor = isRepoOwner(existing, author) || (await isPublicOrgMember(existing, author, { token, fetchImpl }));
   let next;
 
   if (form.action === 'delist') {
     if (isDelisted(existing)) return replyOnly('ℹ️ 已是下架状态 / Already delisted', [`\`${id}\` 当前已下架。`]);
-    next = { ...existing, delisted: { at: isoNow(nowMs), by: author || 'maintainer', ...(form.note ? { note: form.note } : {}) } };
+    next = {
+      ...existing,
+      delisted: { at: isoNow(nowMs), by: author || 'maintainer', ...(isAuthor ? { by_owner: true } : {}), ...(form.note ? { note: form.note } : {}) },
+    };
     if (next.pin) {
-      notes.push(`条目正在置顶（至 ${next.pin.pin_until}），下架会释放坑位。`);
-      delete next.pin;
+      const paused = pausePin(next.pin, nowMs);
+      if (paused) {
+        next.pin = paused;
+        notes.push(`条目正在置顶，下架后暂停并释放坑位，剩余 ${paused.pin_days} 天在恢复上架时继续。`);
+      } else {
+        delete next.pin;
+      }
     }
   } else {
     if (!isDelisted(existing)) return replyOnly('ℹ️ 作品在架 / Already listed', [`\`${id}\` 当前在架，无需恢复。`]);
@@ -226,23 +247,26 @@ export async function handleDelist({ body, issueNumber = null, author = '', laun
 
   if (write) writeEntry(file, next);
 
-  // 仓库所有者自助：直接生效、不建 PR。例外：维护者（或他人）下架的条目，所有者不能自行恢复。
-  const selfServe = isRepoOwner(existing, author) && (form.action === 'delist' || isRepoOwner(existing, existing.delisted.by));
-  if (selfServe) {
+  // 作者自助：直接生效、不建 PR。例外：维护者（或他人）下架的条目，作者不能自行恢复。
+  const selfDelisted = existing.delisted?.by_owner === true || isRepoOwner(existing, existing.delisted?.by);
+  if (isAuthor && (form.action === 'delist' || selfDelisted)) {
     const verb = form.action === 'delist' ? '下架' : '恢复上架';
+    const pinLine = isPendingPin(next.pin)
+      ? (form.action === 'delist' ? `置顶已暂停，剩余 ${next.pin.pin_days} 天在恢复上架后继续。` : `置顶剩余 ${next.pin.pin_days} 天，恢复后继续计时（坑位已满时排队）。`)
+      : '';
     return {
       action: form.action, id,
-      commitMsg: `launch: ${form.action} ${next.name} (${id}) by owner @${author}${issueNumber ? ` (#${issueNumber})` : ''}`,
+      commitMsg: `launch: ${form.action} ${next.name} (${id}) by author @${author}${issueNumber ? ` (#${issueNumber})` : ''}`,
       reply: reply(`✅ 已${verb} / Done`, [
         form.action === 'delist'
-          ? `\`${id}\` 已由仓库所有者 @${author} 下架，客户端几分钟内刷新后消失；讨论帖保留。想回来时用同一模板选「恢复」即可。`
-          : `\`${id}\` 已由仓库所有者 @${author} 恢复上架，沿用原讨论帖与上架时间，客户端几分钟内可见。`,
-        ...(form.action === 'delist' && existing.pin ? ['', `原置顶（至 ${existing.pin.pin_until}）已释放，恢复上架后不会自动还原。`] : []),
+          ? `\`${id}\` 已由作者 @${author} 下架，客户端几分钟内刷新后消失；讨论帖保留。想回来时用同一模板选「恢复」即可。`
+          : `\`${id}\` 已由作者 @${author} 恢复上架，沿用原讨论帖与上架时间，客户端几分钟内可见。`,
+        ...(pinLine ? ['', pinLine] : []),
       ]),
     };
   }
-  if (form.action === 'relist' && isRepoOwner(existing, author)) {
-    notes.push(`该条目由 @${existing.delisted.by} 下架，仓库所有者不能自助恢复，需维护者确认。`);
+  if (form.action === 'relist' && isAuthor) {
+    notes.push(`该条目由 @${existing.delisted.by} 下架，作者不能自助恢复，需维护者确认。`);
   }
 
   const pr = prOutput({ action: form.action, data: next, relPath, issueNumber, author, notes, extra: form.note ? [`- 说明：${form.note}`] : [] });

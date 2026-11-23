@@ -6,9 +6,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        **仓库所有者本人提交即时生效**，无需等待审核；其他人提交会生成 PR，由维护者核对后合并。维护者下架的作品，恢复需要维护者确认。
+        **作者本人提交即时生效**（仓库 owner；组织仓库的公开成员也算），无需等待审核；其他人提交会生成 PR，由维护者核对后合并。维护者下架的作品，恢复需要维护者确认。下架时置顶暂停，恢复后继续剩余天数。
         下架不删除讨论帖；恢复会重新体检仓库，并沿用原讨论帖与上架时间。
-        **The repository owner's own request takes effect immediately.** Requests from anyone else open a PR for a maintainer to merge. Launches taken down by a maintainer need a maintainer to relist.
+        **The author's own request (repo owner, or a public member of the owning org) takes effect immediately.** Spotlight pauses while delisted and resumes on relist. Requests from anyone else open a PR for a maintainer to merge. Launches taken down by a maintainer need a maintainer to relist.
         Delisting keeps the discussion thread; relisting re-checks the repository and keeps the original thread and launch date.
   - type: input
     id: repo_url
