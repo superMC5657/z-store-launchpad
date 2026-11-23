@@ -1,4 +1,4 @@
-name: 下架 / 恢复上架 · Delist or relist
+name: 下架或恢复作品 · Delist or relist your app
 description: 把作品从开源广场下架，或恢复已下架的作品 / Take your launch down, or bring a delisted one back
 title: "[Delist] "
 labels: ["launchpad-delist"]

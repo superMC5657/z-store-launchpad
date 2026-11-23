@@ -67,7 +67,7 @@ export async function handleDiscussionLabel({ entry, hasLabel, actor, authorized
     return {
       action: 'none',
       wantLabel: delisted,
-      reply: `ℹ️ 只有维护者可以通过 \`${DELIST_LABEL}\` 标签上下架，@${actor} 的改动已还原。作者如需下架，请用「下架 / 恢复」Issue 模板提交申请。`,
+      reply: `ℹ️ 只有维护者可以通过 \`${DELIST_LABEL}\` 标签上下架，@${actor} 的改动已还原。作者如需下架，请用「下架或恢复作品」Issue 模板提交申请。`,
     };
   }
 

@@ -2,9 +2,9 @@
 
 所有改动都走 **Issue → 机器人生成 PR → 维护者审核后手动合并**。机器人只负责体检和建 PR，是否上架由维护者决定。唯一的例外是仓库所有者自助下架 / 恢复（见下文）。
 
-## 上架 / 更新 / 重新上架
+## 提交或更新作品（填资料）
 
-1. 打开 [新建 Issue](https://github.com/superMC5657/z-store-launchpad/issues/new?template=submit-launchpad.yml)，选择「上架 / 更新 / 重新上架」。
+1. 打开 [新建 Issue](https://github.com/superMC5657/z-store-launchpad/issues/new?template=submit-launchpad.yml)，选择「提交或更新作品」。
 2. 填写仓库地址、应用名称、分类和一句话自荐（上限 140 字，会折叠为单行）。英文自荐语可选，英文界面优先展示。
 3. 选择档位：`free` 进入「最新上架」新品池；`spotlight-*` 申请顶部置顶推荐。
 4. 提交后机器人体检仓库，并在 Issue 下留**一条**回复（之后都编辑这一条）：
@@ -12,11 +12,11 @@
    - ⏳ 已生成 PR：你不需要再做任何事，等维护者合并。合并后 Issue 自动关闭，作品出现在广场里。
 5. 合并后可用的深链：`zstore://launchpad/<id>`、`zstore://app/<id>`。
 
-已经上架的作品再提交一次就是**更新**（沿用原讨论帖与上架时间）；已经下架的作品再提交一次就是**重新上架**。
+已经上架的作品再提交一次就是**更新资料**（沿用原讨论帖与上架时间）；已经下架的作品提交后会带着新资料恢复上架。
 
-## 下架 / 恢复上架
+## 下架或恢复作品（开关）
 
-提交 [下架 / 恢复上架](https://github.com/superMC5657/z-store-launchpad/issues/new?template=delist-launchpad.yml)，填仓库地址并选择操作：
+资料不变，只切换作品在不在广场上。提交 [下架或恢复作品](https://github.com/superMC5657/z-store-launchpad/issues/new?template=delist-launchpad.yml)，填仓库地址并选择操作：
 
 - **下架**：作品从广场消失，讨论帖保留；正在进行的置顶会被释放，恢复后不会自动还原。
 - **恢复上架**：机器人会重新体检仓库（公开、未归档、OSI 协议、有安装包），通过才会恢复。

@@ -5,8 +5,8 @@ set -euo pipefail
 
 REPO="${GH_REPO:-superMC5657/z-store-launchpad}"
 
-gh label create launchpad-submission --repo "$REPO" --color 5319e7 --description "上架 / 更新 / 重新上架" --force >/dev/null
-gh label create launchpad-delist --repo "$REPO" --color 6e7781 --description "下架 / 恢复上架" --force >/dev/null
+gh label create launchpad-submission --repo "$REPO" --color 5319e7 --description "提交或更新作品" --force >/dev/null
+gh label create launchpad-delist --repo "$REPO" --color 6e7781 --description "下架或恢复作品" --force >/dev/null
 echo "✓ labels: launchpad-submission, launchpad-delist"
 
 cat <<CHECKLIST

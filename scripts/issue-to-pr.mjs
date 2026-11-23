@@ -7,10 +7,10 @@
  *
  * | Issue 模板（标签）                  | 条目状态   | 结果                                          |
  * |-------------------------------------|------------|-----------------------------------------------|
- * | 上架 `launchpad-submission`         | 不存在     | add：新建条目                                 |
+ * | 提交或更新 `launchpad-submission`   | 不存在     | add：新建条目                                 |
  * |                                     | 在架       | update：更新字段，保留讨论帖与 `launched_at`  |
  * |                                     | 已下架     | relist：更新字段并删除 `delisted`             |
- * | 下架 / 恢复 `launchpad-delist`      | 在架       | delist：写入 `delisted`，释放置顶             |
+ * | 下架或恢复 `launchpad-delist`       | 在架       | delist：写入 `delisted`，释放置顶             |
  * |                                     | 已下架     | relist：重新体检仓库后删除 `delisted`         |
  *
  * 例外：仓库所有者（`maker.login`）用下架模板下架、或恢复自己下架的条目时直接生效——写 `--commit-msg` 而不是
@@ -109,7 +109,7 @@ function writeEntry(file, data) {
   fs.writeFileSync(file, formatJson(data));
 }
 
-/** 上架 / 更新 / 重新上架（投稿表单）。 */
+/** 提交或更新作品（投稿表单）：上架 / 更新 / 带新资料恢复。 */
 export async function handleSubmission({ body, issueNumber = null, author = '', launchesDir, write = false, token, fetchImpl = fetch, nowMs = Date.now() }) {
   const verified = await verifySubmission(body, { token, fetchImpl, nowIso: isoNow(nowMs) });
   if (!verified.ok || !verified.item) {

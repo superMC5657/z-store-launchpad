@@ -1,4 +1,4 @@
-name: 上架 / 更新 / 重新上架 · Launchpad submission
+name: 提交或更新作品 · Submit or update your app
 description: 把你的开源作品提交到 ZStore 开源广场（免费新品池或置顶推荐） / Launch your open-source app on ZStore Launchpad
 title: "[Launchpad] "
 labels: ["launchpad-submission"]
@@ -9,7 +9,7 @@ body:
         提交后机器人会体检仓库（公开、OSI 协议、Release 安装包），通过后自动生成 PR，由维护者审核合并后上架。
         After the bot checks your repository (public, OSI license, release assets) it opens a PR; a maintainer reviews and merges it to publish.
 
-        - 已上架的作品再提交一次即为**更新**；已下架的作品再提交一次即为**重新上架**。
+        - 已上架的作品再提交一次即为**更新资料**；已下架的作品提交后会带着新资料恢复上架。
         - Submitting again updates a listed launch, or relists a delisted one.
         - 商业赞助合作请联系维护者另行对接。 / Commercial sponsorships are arranged directly with the maintainer.
   - type: input

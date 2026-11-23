@@ -26,11 +26,11 @@
 
 | Issue 模板（标签） | 条目当前状态 | 生成的 PR |
 | --- | --- | --- |
-| 上架 `launchpad-submission` | 不存在 | `add`：新建条目 |
+| 提交或更新作品 `launchpad-submission` | 不存在 | `add`：新建条目 |
 | | 在架 | `update`：更新字段，保留讨论帖、`launched_at`、置顶 |
 | | 已下架 | `relist`：更新字段并删除 `delisted` |
-| 下架 / 恢复 `launchpad-delist` → 下架 | 在架 | `delist`：写入 `delisted`，释放置顶 |
-| 下架 / 恢复 `launchpad-delist` → 恢复 | 已下架 | `relist`：重新体检仓库，通过后删除 `delisted` |
+| 下架或恢复作品 `launchpad-delist` → 下架 | 在架 | `delist`：写入 `delisted`，释放置顶 |
+| 下架或恢复作品 `launchpad-delist` → 恢复 | 已下架 | `relist`：重新体检仓库，通过后删除 `delisted` |
 
 以下情况机器人只在 Issue 下回复、不建 PR：体检失败、置顶坑位已满、条目不存在、已是目标状态、内容没有变化。作者编辑 Issue 正文保存后会重新处理，同一个 Issue 始终对应同一个分支 `launchpad/issue-<N>` 和同一个 PR。
 
