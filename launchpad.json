@@ -1,8 +1,15 @@
 {
   "version": 1,
-  "generated_at": "2026-11-23T10:05:17Z",
+  "generated_at": "2026-11-23T10:17:27Z",
   "discussions_repo": "superMC5657/z-store-launchpad",
-  "pinned": [],
+  "pinned": [
+    {
+      "id": "supermc5657/jbgit",
+      "pin_until": "2026-12-23T09:06:38Z",
+      "pin_tier": "sponsor",
+      "pin_order": 1
+    }
+  ],
   "items": [
     {
       "id": "supermc5657/jbgit",
