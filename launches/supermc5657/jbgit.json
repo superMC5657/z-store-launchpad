@@ -38,11 +38,5 @@
     "pin_tier": "sponsor",
     "pin_order": 1,
     "pin_days": 30
-  },
-  "delisted": {
-    "at": "2026-11-23T10:18:13Z",
-    "by": "superMC5657",
-    "by_owner": true,
-    "note": "自助下架流程线上测试"
   }
 }
