@@ -35,8 +35,14 @@
   "discussion_node_id": "D_kwDOV4ZaOs4AraNv",
   "discussion_url": "https://github.com/superMC5657/z-store-launchpad/discussions/3",
   "pin": {
-    "pin_until": "2026-12-23T09:06:38Z",
     "pin_tier": "sponsor",
-    "pin_order": 1
+    "pin_order": 1,
+    "pin_days": 30
+  },
+  "delisted": {
+    "at": "2026-11-23T10:18:13Z",
+    "by": "superMC5657",
+    "by_owner": true,
+    "note": "自助下架流程线上测试"
   }
 }
