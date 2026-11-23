@@ -1,0 +1,16 @@
+{
+  "name": "z-store-launchpad",
+  "version": "1.0.0",
+  "description": "Static Launchpad manifest and zero-backend launch automation for ZStore.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build-launchpad.mjs",
+    "validate": "node scripts/validate-launchpad.mjs && node scripts/build-launchpad.mjs --check-sources",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "license": "MIT"
+}

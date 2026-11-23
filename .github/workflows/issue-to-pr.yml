@@ -1,0 +1,54 @@
+name: Issue to PR
+
+# 上架 / 更新 / 下架 / 重新上架 Issue → launches/ 改动 → PR。机器人只建 PR、不合并：维护者手动 merge 即生效，关闭 PR 即驳回。
+# Issue 正文只由脚本经 REST 读取，不插值进 shell。
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: issue-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr:
+    if: >-
+      github.event.issue.state == 'open' &&
+      (contains(github.event.issue.labels.*.name, 'launchpad-submission') ||
+       contains(github.event.issue.labels.*.name, 'launchpad-delist'))
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.LAUNCHPAD_BOT_TOKEN || github.token }}
+      N: ${{ github.event.issue.number }}
+      BRANCH: launchpad/issue-${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.LAUNCHPAD_BOT_TOKEN || github.token }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node scripts/issue-to-pr.mjs --issue "$N" --pr-title title.txt --pr-body body.md --reply reply.md
+      - name: Push branch and open PR
+        if: hashFiles('title.txt') != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add launches/
+          git commit -m "$(cat title.txt)"
+          git push -f origin "$BRANCH"
+          pr=$(gh pr list --head "$BRANCH" --state open --json url --jq '.[0].url // ""')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "$(cat title.txt)" --body-file body.md
+          else
+            gh pr create --base main --head "$BRANCH" --title "$(cat title.txt)" --body-file body.md
+          fi
+      - name: Reply on issue
+        run: gh issue comment "$N" --body-file reply.md --edit-last --create-if-none
