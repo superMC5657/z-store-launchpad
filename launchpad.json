@@ -1,7 +1,46 @@
 {
   "version": 1,
-  "generated_at": "2026-11-23T10:04:33Z",
+  "generated_at": "2026-11-23T10:05:17Z",
   "discussions_repo": "superMC5657/z-store-launchpad",
   "pinned": [],
-  "items": []
+  "items": [
+    {
+      "id": "supermc5657/jbgit",
+      "name": "JbGit",
+      "owner": "supermc5657",
+      "repo": "jbgit",
+      "forge": "github",
+      "forge_host": "github.com",
+      "icon": "https://raw.githubusercontent.com/supermc5657/jbgit/main/assets/icon.png",
+      "icon_bg": "",
+      "description": "JetBrains-style High-Performance Terminal Git Client written in Rust",
+      "maker_note": "jbgit 是一款模仿 IntelliJ IDEA / JetBrains 系列 IDE 版本控制体验的终端 Git 客户端。 翻译为中文",
+      "maker": {
+        "login": "supermc5657",
+        "avatar_url": "https://avatars.githubusercontent.com/u/33796582?v=4",
+        "html_url": "https://github.com/superMC5657"
+      },
+      "category": "dev",
+      "category_name": "开发编程",
+      "license": "Apache-2.0",
+      "latest_version": "v0.1.0",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "stars": 1,
+      "stars_7d_delta": 0,
+      "forks": 0,
+      "launched_at": "2026-11-23T09:06:38Z",
+      "maker_note_en": "jbgit is a terminal Git client inspired by the version control experience of IntelliJ IDEA and JetBrains IDEs.",
+      "latest_release_at": "2026-11-22T12:32:14Z",
+      "discussion_repo": "superMC5657/z-store-launchpad",
+      "discussion_number": 3,
+      "discussion_node_id": "D_kwDOV4ZaOs4AraNv",
+      "discussion_url": "https://github.com/superMC5657/z-store-launchpad/discussions/3",
+      "discussion_comments_count": 0,
+      "discussion_upvotes": 0
+    }
+  ]
 }
