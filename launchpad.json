@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-11-24T09:56:27Z",
+  "generated_at": "2026-11-26T08:22:03Z",
   "discussions_repo": "superMC5657/z-store-launchpad",
   "pinned": [
     {
@@ -30,7 +30,7 @@
       "category": "dev",
       "category_name": "开发编程",
       "license": "Apache-2.0",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "platforms": [
         "windows",
         "macos",
